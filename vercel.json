@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/notify?type=weekly-digest",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/notify?type=monthly-report",
+      "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/notify?type=invoice-overdue",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

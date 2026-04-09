@@ -1,0 +1,366 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Check, X, Minus, CreditCard, Sparkles, Zap, Shield, ArrowRight } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { createCheckoutSession } from "@/lib/data/billing";
+import { useAuth } from "@/lib/context/AuthContext";
+import { useToast } from "@/lib/context/ToastContext";
+
+// ── Comparison data ───────────────────────────────────────────────────────────
+
+type RowValue = true | false | "partial";
+
+interface CompareRow {
+  label: string;
+  free: RowValue;
+  pro: RowValue;
+  freeNote?: string;
+}
+
+const COMPARE: { group: string; rows: CompareRow[] }[] = [
+  {
+    group: "Income tracking",
+    rows: [
+      { label: "Manual income entry",        free: true,      pro: true },
+      { label: "Payment source connections", free: "partial", pro: true, freeNote: "1 source" },
+      { label: "Income history",             free: "partial", pro: true, freeNote: "3 months" },
+      { label: "Multi-currency & FX rates",  free: false,     pro: true },
+    ],
+  },
+  {
+    group: "Tax & finances",
+    rows: [
+      { label: "Tax estimates by country",   free: false, pro: true },
+      { label: "Safe to spend calculator",   free: false, pro: true },
+      { label: "Quarterly tax calendar",     free: false, pro: true },
+      { label: "Annual tax report",          free: false, pro: true },
+    ],
+  },
+  {
+    group: "Clients & invoicing",
+    rows: [
+      { label: "Invoice generator",          free: false, pro: true },
+      { label: "Client & project tracking",  free: false, pro: true },
+      { label: "Proposals & contracts",      free: false, pro: true },
+    ],
+  },
+  {
+    group: "Export & integrations",
+    rows: [
+      { label: "CSV & PDF export",           free: false, pro: true },
+      { label: "Webhook integrations",       free: false, pro: true },
+      { label: "Public earnings page",       free: false, pro: true },
+    ],
+  },
+];
+
+function Cell({ value, note }: { value: RowValue; note?: string }) {
+  if (value === true)
+    return <Check className="h-4 w-4 mx-auto" style={{ color: "#22C55E" }} />;
+  if (value === false)
+    return <X className="h-4 w-4 mx-auto" style={{ color: "var(--text-muted)" }} />;
+  return (
+    <div className="text-center">
+      <Minus className="h-4 w-4 mx-auto" style={{ color: "var(--text-muted)" }} />
+      {note && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{note}</p>}
+    </div>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+export default function UpgradePage() {
+  const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const isPro = user?.isPro ?? false;
+
+  useEffect(() => {
+    if (!authLoading && !user) router.push("/login");
+  }, [user, authLoading, router]);
+
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+    try {
+      const { url } = await createCheckoutSession(user?.id, user?.email);
+      if (url && url !== "#") {
+        window.location.href = url;
+      } else {
+        setConfirmOpen(false);
+        toast("Stripe not connected yet — coming soon.", "info");
+      }
+    } catch {
+      setConfirmOpen(false);
+      toast("Something went wrong. Please try again.", "error");
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  // ── Already Pro ────────────────────────────────────────────────────────────
+  if (isPro) {
+    return (
+      <AppShell title="Upgrade">
+        <div className="flex items-center justify-center h-full p-6">
+          <div className="text-center space-y-3 max-w-sm">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+              style={{ background: "#22C55E20", border: "1px solid #22C55E30" }}
+            >
+              <Sparkles className="h-5 w-5" style={{ color: "#22C55E" }} />
+            </div>
+            <p className="text-white font-semibold">You&apos;re on Pro</p>
+            <p className="text-sm text-slate-400">
+              You have full access to every feature. Manage your subscription in{" "}
+              <button
+                onClick={() => router.push("/settings")}
+                className="underline text-slate-300 hover:text-white"
+              >
+                Settings → Billing
+              </button>.
+            </p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell title="Upgrade">
+      <div className="p-5 lg:p-6 space-y-5">
+
+        {/* Page header — matches every other page */}
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Choose your plan</h2>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            Upgrade to Pro to unlock your full financial picture.
+          </p>
+        </div>
+
+        {/* Plan header cards */}
+        <div className="grid grid-cols-2 gap-4">
+
+          {/* Free card */}
+          <div
+            className="rounded-xl p-5"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Free</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>€0</span>
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>/ mo</span>
+                </div>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Free forever</p>
+              </div>
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: "var(--bg-page)", color: "var(--text-muted)", border: "1px solid var(--border-col)" }}
+              >
+                Current plan
+              </span>
+            </div>
+          </div>
+
+          {/* Pro card */}
+          <div
+            className="rounded-xl p-5 relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #0d1f12 0%, #091510 100%)",
+              border: "2px solid #22C55E40",
+            }}
+          >
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: "radial-gradient(ellipse at top right, #22C55E0C 0%, transparent 65%)" }}
+            />
+            <div className="flex items-start justify-between relative">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "#22C55E" }}>
+                  Pro
+                </p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold" style={{ color: "#ffffff" }}>€9</span>
+                  <span className="text-sm" style={{ color: "#94a3b8" }}>/ mo</span>
+                </div>
+                <p className="text-xs mt-1" style={{ color: "#6b7280" }}>Cancel anytime</p>
+              </div>
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                className="font-bold text-xs h-9 px-4"
+                style={{ background: "#22C55E", color: "#0f172a" }}
+              >
+                <Zap className="h-3.5 w-3.5 mr-1.5 fill-current" />
+                Upgrade now
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Comparison table */}
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
+        >
+          {/* Table header */}
+          <div
+              className="grid text-xs font-semibold uppercase tracking-wider"
+            style={{
+              color: "var(--text-secondary)",
+              gridTemplateColumns: "1fr 120px 120px",
+              borderBottom: "1px solid var(--border-col)",
+              background: "var(--bg-page)",
+            }}
+          >
+            <div className="px-5 py-3">Feature</div>
+            <div className="px-4 py-3 text-center" style={{ borderLeft: "1px solid var(--border-col)" }}>Free</div>
+            <div
+              className="px-4 py-3 text-center"
+              style={{ borderLeft: "1px solid #22C55E20", color: "#22C55E" }}
+            >
+              Pro
+            </div>
+          </div>
+
+          {/* Groups */}
+          {COMPARE.map((section, si) => (
+            <div key={section.group}>
+              {/* Group header */}
+              <div
+                className="px-5 py-2 text-xs font-semibold uppercase tracking-wider"
+                style={{
+                  color: "var(--text-muted)",
+                  background: "var(--bg-page)",
+                  borderTop: si > 0 ? "1px solid var(--border-col)" : "1px solid var(--border-col)",
+                }}
+              >
+                {section.group}
+              </div>
+
+              {/* Rows */}
+              {section.rows.map((row, ri) => (
+                <div
+                  key={row.label}
+                  className="grid items-center"
+                  style={{
+                    gridTemplateColumns: "1fr 120px 120px",
+                    borderTop: "1px solid var(--border-col)",
+                  }}
+                >
+                  <div className="px-5 py-3">
+                    <span className="text-sm" style={{ color: "var(--text-primary)" }}>{row.label}</span>
+                  </div>
+                  <div
+                    className="px-4 py-3 flex justify-center"
+                    style={{ borderLeft: "1px solid var(--border-col)" }}
+                  >
+                    <Cell value={row.free} note={row.freeNote} />
+                  </div>
+                  <div
+                    className="px-4 py-3 flex justify-center"
+                    style={{ background: "#070f0905", borderLeft: "1px solid #22C55E15" }}
+                  >
+                    <Cell value={row.pro} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Trust + CTA row */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-5 flex-wrap">
+            {[
+              { icon: Shield,     label: "Secure payments" },
+              { icon: ArrowRight, label: "Cancel anytime" },
+              { icon: CreditCard, label: "14-day refund" },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <Icon className="h-3.5 w-3.5" style={{ color: "#22C55E" }} />
+                {label}
+              </div>
+            ))}
+          </div>
+          <Button
+            onClick={() => setConfirmOpen(true)}
+            className="font-bold text-sm h-9 px-5"
+            style={{ background: "#22C55E", color: "#0f172a" }}
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+            Upgrade to Pro — €9/mo
+          </Button>
+        </div>
+
+      </div>
+
+      {/* ── Confirmation dialog ───────────────────────────────────── */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent
+          className="sm:max-w-sm"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-white text-base flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ background: "#22C55E20" }}
+              >
+                <Sparkles className="h-3.5 w-3.5" style={{ color: "#22C55E" }} />
+              </div>
+              Upgrade to Pro
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-1 space-y-4">
+            <div
+              className="rounded-xl p-4 space-y-2"
+              style={{ background: "var(--bg-page)", border: "1px solid var(--border-col)" }}
+            >
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">MyStackd Pro</span>
+                <span className="text-white font-semibold">€9.00 / mo</span>
+              </div>
+              <div
+                className="flex justify-between text-sm font-semibold pt-2 border-t"
+                style={{ borderColor: "var(--border-col)" }}
+              >
+                <span className="text-white">Due today</span>
+                <span style={{ color: "#22C55E" }}>€9.00</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 text-center leading-relaxed">
+              Stripe is coming soon. Clicking confirm activates Pro immediately so you can explore all features.
+            </p>
+
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                className="flex-1 text-slate-400 hover:text-white"
+                onClick={() => setConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpgrade}
+                disabled={isUpgrading}
+                className="flex-1 font-bold"
+                style={{ background: "#22C55E", color: "#0f172a" }}
+              >
+                {isUpgrading ? "Activating…" : "Confirm & activate"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </AppShell>
+  );
+}

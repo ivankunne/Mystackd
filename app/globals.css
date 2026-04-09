@@ -1,5 +1,4 @@
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,85 +9,193 @@
   }
 }
 
+/* ── CSS custom properties ─────────────────────────────────────────────────── */
+
+:root {
+  /* Layout & surface */
+  --bg-page:        #f1f5f9;
+  --bg-sidebar:     #ffffff;
+  --bg-card:        #ffffff;
+  --bg-elevated:    #f8fafc;
+  --border-col:     #e2e8f0;
+
+  /* Typography */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+
+  /* Elevation */
+  --shadow-card: 0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-sm:   0 1px 2px rgba(15,23,42,0.05);
+  --shadow-lg:   0 4px 16px rgba(15,23,42,0.10), 0 2px 6px rgba(15,23,42,0.06);
+}
+
 @layer base {
-  .theme {
-    --font-heading: var(--font-sans);
-    --font-sans: var(--font-sans);
-  }
   :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* shadcn/ui tokens — light mode */
+    --background: 210 40% 98%;
+    --foreground: 222 84% 5%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 84% 5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 84% 5%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 142 76% 36%;
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 243 100% 68%;
+    --chart-4: 151 68% 43%;
+    --chart-5: 215 14% 42%;
   }
-  .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
-  }
+
   * {
-    @apply border-border outline-ring/50;
+    border-color: hsl(var(--border));
+    box-sizing: border-box;
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
   html {
-    @apply font-sans;
+    font-family: var(--font-sans), system-ui, sans-serif;
   }
 }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── Radix Dropdown Menu ──────────────────────────────────────────────────── */
+[role="menuitem"][data-highlighted] {
+  background: var(--bg-elevated) !important;
+  color: inherit !important;
+}
+
+/* ── Radix Select ─────────────────────────────────────────────────────────── */
+[data-radix-popper-content-wrapper] [role="listbox"],
+[data-radix-select-content] {
+  background: #ffffff !important;
+  border-color: var(--border-col) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+[data-radix-select-item] {
+  color: var(--text-primary) !important;
+}
+[data-radix-select-item]:hover,
+[data-radix-select-item][data-highlighted] {
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+[data-radix-select-trigger] {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-col) !important;
+}
+
+/* ── Range slider ─────────────────────────────────────────────────────────── */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #16a34a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #16a34a40;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 5px #16a34a25;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #16a34a;
+  border: 3px solid #ffffff;
+  cursor: pointer;
+}
+
+/* ── Global light-theme text override ────────────────────────────────────── */
+/* Every app page was written for dark mode. Override text-white globally so
+   it reads as dark text on our white background. Inline style={{ color:"#fff" }}
+   still wins (higher CSS specificity), so buttons/badges with colored
+   backgrounds are unaffected.
+   The landing page wraps everything in .force-dark — restore white there. */
+.text-white {
+  color: var(--text-primary);
+}
+.force-dark .text-white {
+  color: rgb(255 255 255);
+}
+
+/* Also fix near-white classes that are invisible on white */
+.app-shell .text-slate-200,
+[data-slot="dialog-content"] .text-slate-200 {
+  color: var(--text-secondary);
+}
+.app-shell .text-slate-300,
+[data-slot="dialog-content"] .text-slate-300 {
+  color: var(--text-secondary);
+}
+
+/* ── Focus ring ───────────────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 2px;
+}
+
+/* ── Banners ──────────────────────────────────────────────────────────────── */
+.banner-warning { background: #fffbeb; border: 1px solid #fde68a; }
+.banner-warning-text { color: #78350f; }
+.banner-info { background: #eff6ff; border: 1px solid #bfdbfe; }
+.banner-info-text { color: #1d4ed8; }
+.banner-success { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.banner-success-text { color: #166534; }
+.banner-dismiss { color: #9ca3af; transition: color 0.15s; }
+.banner-dismiss:hover { color: #374151; }
+
+/* Danger banner */
+.banner-danger { background: #fef2f2; border: 1px solid #fecaca; }
+.banner-danger-icon { color: #dc2626; }
+.banner-danger-text { color: #111827; }
+.banner-danger-strong { color: #dc2626; }
+
+/* ── Pro blur overlay ─────────────────────────────────────────────────────── */
+.pro-overlay {
+  background: rgba(248, 250, 252, 0.88);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.pro-overlay-text { color: #475569; }
+
+/* ── Auth pages ───────────────────────────────────────────────────────────── */
+.auth-page-title { color: var(--text-primary); }
+.auth-page-subtitle { color: var(--text-secondary); }
+.auth-input {
+  color: var(--text-primary) !important;
+  background: #ffffff !important;
+  border-color: var(--border-col) !important;
+}
+.auth-input::placeholder { color: var(--text-muted) !important; }
+.auth-label { color: var(--text-secondary); }
