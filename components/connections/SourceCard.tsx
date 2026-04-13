@@ -7,9 +7,11 @@ import {
   connectSource,
   disconnectSource,
   syncSource,
+  getOAuthConnectUrl,
 } from "@/lib/data/connections";
 import type { Connection, IncomeSource } from "@/lib/mock-data";
 import dayjs from "dayjs";
+import { useAuth } from "@/lib/context/AuthContext";
 
 const SOURCE_CONFIG: Record<
   IncomeSource,
@@ -60,6 +62,7 @@ interface SourceCardProps {
 }
 
 export function SourceCard({ connection, onUpdate }: SourceCardProps) {
+  const { user } = useAuth();
   const [conn, setConn] = useState<Connection>(connection);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -68,13 +71,23 @@ export function SourceCard({ connection, onUpdate }: SourceCardProps) {
 
   const config = SOURCE_CONFIG[conn.source];
   const isConnected = conn.status === "connected";
+  const isOAuthSource = ["stripe", "paypal", "upwork"].includes(conn.source);
 
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      const updated = await connectSource(conn.source);
-      setConn(updated);
-      onUpdate?.(updated);
+      // OAuth sources need to redirect to their OAuth URL
+      if (isOAuthSource) {
+        const url = await getOAuthConnectUrl(conn.source, user?.id);
+        if (url) {
+          window.location.href = url;
+        }
+      } else {
+        // Non-OAuth sources (manual, fiverr CSV) just mark as connected
+        const updated = await connectSource(conn.source);
+        setConn(updated);
+        onUpdate?.(updated);
+      }
     } finally {
       setIsConnecting(false);
     }

@@ -96,10 +96,10 @@ export default function IntelligencePage() {
 
   useEffect(() => {
     Promise.all([
-      getInvoices(),
-      getIncomeEntries(),
-      getExpenses(),
-      getTimeEntries(),
+      getInvoices(user?.id),
+      getIncomeEntries(user?.id),
+      getExpenses(user?.id),
+      getTimeEntries(user?.id),
     ]).then(([inv, inc, exp, time]) => {
       setInvoices(inv);
       setIncome(inc);
@@ -107,7 +107,7 @@ export default function IntelligencePage() {
       setTimeEntries(time);
       setLoading(false);
     });
-  }, []);
+  }, [user?.id]);
 
   // ─── Cash Flow Forecast ───────────────────────────────────────────────────
 

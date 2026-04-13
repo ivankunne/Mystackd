@@ -1,4 +1,5 @@
 import { createClient } from "../supabase/client";
+import { getStripeConnectUrl } from "../api/stripe";
 import type { Connection, IncomeSource } from "../mock-data";
 
 const ALL_SOURCES: IncomeSource[] = ["stripe", "paypal", "upwork", "fiverr", "manual"];
@@ -37,16 +38,34 @@ export async function getConnections(userId?: string): Promise<Connection[]> {
 export async function connectSource(source: IncomeSource, userId?: string): Promise<Connection> {
   const supabase = createClient();
   const id = userId ?? await getCurrentUserId();
+  const connectedAt = new Date().toISOString();
   const connected: Connection = {
     source,
     status: "connected",
-    connectedAt: new Date().toISOString().split("T")[0],
+    connectedAt,
   };
   const { error } = await supabase
     .from("connections")
-    .upsert({ user_id: id, source, status: "connected", connected_at: connected.connectedAt });
+    .upsert({ user_id: id, source, status: "connected", connected_at: connectedAt }, { onConflict: "user_id,source" });
   if (error) throw new Error(error.message);
   return connected;
+}
+
+export async function getOAuthConnectUrl(source: IncomeSource, userId?: string): Promise<string | null> {
+  const id = userId ?? await getCurrentUserId();
+
+  if (source === "stripe") {
+    // Get origin from window or fall back to environment variable
+    const origin = typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    return getStripeConnectUrl({
+      clientId: process.env.NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID!,
+      redirectUri: `${origin}/api/oauth/stripe/callback`,
+      userId: id,
+    });
+  }
+
+  // TODO: Add PayPal, Upwork OAuth URLs here
+  return null;
 }
 
 export async function disconnectSource(source: IncomeSource, userId?: string): Promise<void> {
@@ -54,7 +73,7 @@ export async function disconnectSource(source: IncomeSource, userId?: string): P
   const id = userId ?? await getCurrentUserId();
   const { error } = await supabase
     .from("connections")
-    .upsert({ user_id: id, source, status: "disconnected", connected_at: null });
+    .upsert({ user_id: id, source, status: "disconnected", connected_at: null }, { onConflict: "user_id,source" });
   if (error) throw new Error(error.message);
 }
 

@@ -23,37 +23,41 @@ interface CompareRow {
 
 const COMPARE: { group: string; rows: CompareRow[] }[] = [
   {
-    group: "Income tracking",
+    group: "Core tracking",
     rows: [
       { label: "Manual income entry",        free: true,      pro: true },
-      { label: "Payment source connections", free: "partial", pro: true, freeNote: "1 source" },
-      { label: "Income history",             free: "partial", pro: true, freeNote: "3 months" },
+      { label: "Expense tracking",           free: true,      pro: true },
+      { label: "Time tracking",              free: true,      pro: true },
+      { label: "Client & project tracking",  free: true,      pro: true },
+      { label: "Invoice generation",         free: true,      pro: true },
+      { label: "Proposals & contracts",      free: true,      pro: true },
+    ],
+  },
+  {
+    group: "Financial insights (Pro)",
+    rows: [
       { label: "Multi-currency & FX rates",  free: false,     pro: true },
+      { label: "Safe to spend calculator",   free: false,     pro: true },
+      { label: "Tax estimates by country",   free: false,     pro: true },
+      { label: "Advanced analytics dashboard", free: false,     pro: true },
+      { label: "Quarterly tax calendar",     free: false,     pro: true },
     ],
   },
   {
-    group: "Tax & finances",
+    group: "Client & automation (Pro)",
     rows: [
-      { label: "Tax estimates by country",   free: false, pro: true },
-      { label: "Safe to spend calculator",   free: false, pro: true },
-      { label: "Quarterly tax calendar",     free: false, pro: true },
-      { label: "Annual tax report",          free: false, pro: true },
-    ],
-  },
-  {
-    group: "Clients & invoicing",
-    rows: [
-      { label: "Invoice generator",          free: false, pro: true },
-      { label: "Client & project tracking",  free: false, pro: true },
-      { label: "Proposals & contracts",      free: false, pro: true },
-    ],
-  },
-  {
-    group: "Export & integrations",
-    rows: [
-      { label: "CSV & PDF export",           free: false, pro: true },
+      { label: "Client portals",             free: false, pro: true },
+      { label: "Recurring invoices",         free: false, pro: true },
+      { label: "Automated payment reminders", free: false,     pro: true },
+      { label: "Multiple income connections", free: "partial", pro: true, freeNote: "1 connection" },
       { label: "Webhook integrations",       free: false, pro: true },
-      { label: "Public earnings page",       free: false, pro: true },
+    ],
+  },
+  {
+    group: "Export & sharing",
+    rows: [
+      { label: "CSV & PDF export",           free: true,      pro: true },
+      { label: "Public earnings page",       free: true, pro: true },
     ],
   },
 ];

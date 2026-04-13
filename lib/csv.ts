@@ -1,4 +1,4 @@
-import type { IncomeEntry, Expense, Invoice, TimeEntry, IncomeSource, Currency } from "./mock-data";
+import type { IncomeEntry, Expense, Invoice, TimeEntry, IncomeSource, Currency, Client, Project } from "./mock-data";
 
 // ─── CSV parser ────────────────────────────────────────────────────────────────
 
@@ -199,4 +199,23 @@ export function exportTimeEntriesCSV(entries: TimeEntry[], filename?: string): v
     e.isBilled ? "Yes" : "No",
   ]);
   download(buildCSV(headers, rows), filename ?? `time-export-${new Date().toISOString().split("T")[0]}.csv`);
+}
+
+export function exportClientsCSV(clients: Client[], filename?: string): void {
+  const headers = ["Name", "Company", "Email", "Phone", "Country", "Notes", "Client Since"];
+  const rows = clients.map((c) => [
+    c.name, c.company ?? "", c.email ?? "", c.phone ?? "", c.country ?? "",
+    c.notes ?? "", c.createdAt ?? "",
+  ]);
+  download(buildCSV(headers, rows), filename ?? `clients-export-${new Date().toISOString().split("T")[0]}.csv`);
+}
+
+export function exportProjectsCSV(projects: Project[], filename?: string): void {
+  const headers = ["Name", "Client", "Status", "Budget", "Currency", "Start Date", "End Date", "Notes"];
+  const rows = projects.map((p) => [
+    p.name, p.clientName ?? "", p.status,
+    p.budgetAmount ?? "", p.currency ?? "", p.startDate ?? "",
+    p.endDate ?? "", p.notes ?? "",
+  ]);
+  download(buildCSV(headers, rows), filename ?? `projects-export-${new Date().toISOString().split("T")[0]}.csv`);
 }

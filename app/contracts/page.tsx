@@ -199,6 +199,56 @@ function ContractCard({
         </div>
       </div>
 
+      {/* Contract workflow progress */}
+      {contract.status !== "cancelled" && (
+        <div className="px-5 py-3 flex items-center justify-center gap-2">
+          {["draft", "sent", "signed", "active", "completed"].map((step, idx, arr) => {
+            const STEP_ORDER = ["draft", "sent", "signed", "active", "completed"];
+            const currentStepIdx = STEP_ORDER.indexOf(contract.status as ContractStatus);
+            const isActive = idx <= currentStepIdx;
+            const isLast = idx === arr.length - 1;
+            const stepColor = isActive ? "#22C55E" : "var(--border-col)";
+
+            return (
+              <div key={step} className="flex items-center gap-1.5">
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center border-2"
+                  style={{
+                    borderColor: stepColor,
+                    background: isActive ? stepColor : "transparent",
+                  }}
+                >
+                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+                <span
+                  className="text-[10px] font-medium whitespace-nowrap"
+                  style={{ color: stepColor }}
+                >
+                  {step.charAt(0).toUpperCase() + step.slice(1)}
+                </span>
+                {!isLast && (
+                  <div
+                    className="h-0.5 w-4"
+                    style={{ background: stepColor }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {contract.status === "cancelled" && (
+        <div className="px-5 py-3 flex items-center justify-center">
+          <span
+            className="text-xs font-semibold px-3 py-1 rounded-full"
+            style={{ background: "#ef444420", color: "#f87171" }}
+          >
+            Cancelled
+          </span>
+        </div>
+      )}
+
       {/* Expanded detail */}
       {expanded && (
         <div

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Plus, ChevronRight, Trash2, UserPlus, X, Info, Search, GripVertical } from "lucide-react";
+import { Plus, ChevronRight, Trash2, UserPlus, X, Info, Search, GripVertical, Zap, Lock } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProGateModal } from "@/components/ui/pro-gate-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -283,6 +284,7 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [overStage, setOverStage] = useState<LeadStage | null>(null); // kept for DragOverlay context
+  const [showProModal, setShowProModal] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -422,6 +424,12 @@ export default function LeadsPage() {
 
   return (
     <AppShell title="Lead Pipeline">
+      <ProGateModal
+        isOpen={showProModal}
+        onClose={() => setShowProModal(false)}
+        feature="Advanced Lead Analytics"
+        description="Track pipeline value, win rates, lead source performance, and conversion metrics. Get insights to optimize your sales process."
+      />
       <div className="p-5 lg:p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -463,6 +471,45 @@ export default function LeadsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Advanced Analytics (Pro) */}
+        {!loading && (
+          <div
+            className="rounded-xl p-5 border-l-4"
+            style={{ background: "var(--bg-card)", borderColor: "#fbbf24", borderTopColor: "var(--border-col)", borderRightColor: "var(--border-col)", borderBottomColor: "var(--border-col)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4" style={{ color: "#fbbf24" }} />
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Lead Source & Funnel Analytics</p>
+                {!user?.isPro && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1" style={{ background: "#fbbf2430", color: "#fbbf24" }}>
+                    <Lock className="h-3 w-3" />
+                    Pro
+                  </span>
+                )}
+              </div>
+              {!user?.isPro && (
+                <button
+                  onClick={() => setShowProModal(true)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                  style={{ background: "#fbbf2420", color: "#fbbf24" }}
+                >
+                  Unlock →
+                </button>
+              )}
+            </div>
+            {user?.isPro ? (
+              <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                Track which sources bring the best-qualified leads, visualize your conversion funnel, and optimize your lead generation strategy.
+              </p>
+            ) : (
+              <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                Get detailed analytics on lead sources, conversion rates by funnel stage, and data-driven recommendations to improve your pipeline.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Kanban board */}
         {loading ? (

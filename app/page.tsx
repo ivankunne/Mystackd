@@ -146,7 +146,7 @@ const BARS = [
   { month: "Mar", stripe: 90, paypal: 40, fiverr: 22 },
 ];
 
-const FEATURES: { icon: React.ElementType; color: string; title: string; desc: string; wide?: boolean }[] = [
+const FEATURES: { icon: React.ElementType; color: string; title: string; desc: string; wide?: boolean; pro?: boolean }[] = [
   {
     icon: TrendingUp,
     color: "#635BFF",
@@ -155,22 +155,29 @@ const FEATURES: { icon: React.ElementType; color: string; title: string; desc: s
     desc: "Connect Stripe, PayPal, Upwork, and Fiverr. Add manual entries for cash or bank transfers. Every euro tracked.",
   },
   {
-    icon: Shield,
-    color: "#22C55E",
-    title: "Tax estimates that don't suck",
-    desc: "Country-aware quarterly tax reminders with estimated payment amounts. Know what you owe before your accountant tells you.",
-  },
-  {
-    icon: Zap,
-    color: "#F59E0B",
-    title: "Safe to spend, calculated",
-    desc: "After tax and tracked expenses, see your real spendable number updated live. Stop guessing if you can afford something.",
-  },
-  {
     icon: FileText,
     color: "#1DBF73",
     title: "Invoice without leaving",
-    desc: "Create and send PDF invoices directly in MyStackd. When a payment lands, it links back automatically.",
+    desc: "Create and send PDF invoices directly in MyStackd. Track all your clients, projects, and proposals in one place.",
+  },
+  {
+    icon: Clock,
+    color: "#14B8A6",
+    title: "Time tracking → invoice in one click",
+    desc: "Start the timer, log your hours per client, then turn them into an invoice without touching another app.",
+    wide: true,
+  },
+  {
+    icon: Receipt,
+    color: "#F97316",
+    title: "Expense tracking with tax flags",
+    desc: "Log software, travel, and gear costs. Mark what's deductible and track spending by category.",
+  },
+  {
+    icon: Bell,
+    color: "#EF4444",
+    title: "Payment reminders",
+    desc: "See every overdue invoice sorted by urgency. Generate a professional follow-up email with one click.",
   },
   {
     icon: Users,
@@ -179,29 +186,25 @@ const FEATURES: { icon: React.ElementType; color: string; title: string; desc: s
     desc: `Tag income by client and project. See instantly: "Acme Corp — €4,200 this year across 6 invoices."`,
   },
   {
+    icon: Shield,
+    color: "#22C55E",
+    title: "Tax estimates that don't suck",
+    desc: "Country-aware quarterly tax reminders with estimated payment amounts. Know what you owe before your accountant tells you.",
+    pro: true,
+  },
+  {
+    icon: Zap,
+    color: "#F59E0B",
+    title: "Safe to spend, calculated",
+    desc: "After tax and tracked expenses, see your real spendable number updated live. Stop guessing if you can afford something.",
+    pro: true,
+  },
+  {
     icon: Globe,
     color: "#EC4899",
-    title: "Multi-currency, normalized",
+    title: "Multi-currency & FX normalization",
     desc: "Earn in USD, live in EUR? Every entry shows the FX rate used and converts to your home currency automatically.",
-  },
-  {
-    icon: Clock,
-    color: "#14B8A6",
-    title: "Time tracking → invoice in one click",
-    desc: "Start the timer, log your hours per client, then turn them into an invoice without touching another app. Built for the daily workflow.",
-    wide: true,
-  },
-  {
-    icon: Receipt,
-    color: "#F97316",
-    title: "Expense tracking with tax flags",
-    desc: "Log software, travel, and gear costs. Mark what's deductible and watch your safe-to-spend number adjust in real time.",
-  },
-  {
-    icon: Bell,
-    color: "#EF4444",
-    title: "Payment reminders without the awkward",
-    desc: "See every overdue invoice sorted by urgency. Generate a professional follow-up email and copy it with one click.",
+    pro: true,
   },
 ];
 
@@ -715,8 +718,14 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {FEATURES.map((f, i) => (
               <FadeIn key={f.title} delay={i * 60} className={f.wide ? "sm:col-span-2 lg:col-span-2" : ""}>
-                <div className="rounded-2xl p-6 h-full"
-                  style={{ background: "#1e2736", border: "1px solid #2d3a52" }}>
+                <div className="rounded-2xl p-6 h-full relative"
+                  style={{ background: f.pro ? "#1a2332" : "#1e2736", border: f.pro ? "1px solid #fbbf24" : "1px solid #2d3a52" }}>
+                  {f.pro && (
+                    <div className="absolute top-3 right-3 text-xs font-semibold px-2 py-1 rounded-full"
+                      style={{ background: "#fbbf2420", color: "#fbbf24" }}>
+                      Pro
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mb-3">
                     <f.icon className="h-4 w-4 flex-shrink-0" style={{ color: f.color }} />
                     <h3 className="text-sm font-semibold text-white">{f.title}</h3>

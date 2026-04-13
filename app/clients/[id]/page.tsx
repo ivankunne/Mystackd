@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dayjs from "dayjs";
 import {
   ArrowLeft, ExternalLink, Copy, Check, Plus, Trash2,
   FileText, MessageSquare, Clock, Settings, AlertCircle,
-  CheckCircle2, Upload, Eye, EyeOff,
+  CheckCircle2, Upload, Eye, EyeOff, History, Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ import type {
 import type { PortalUpdateStatus } from "@/lib/mock-data";
 
 // ─── Tab ─────────────────────────────────────────────────────────────────────
-type Tab = "overview" | "proposals" | "contracts" | "projects" | "portal" | "updates" | "files" | "feedback";
+type Tab = "overview" | "proposals" | "contracts" | "projects" | "portal" | "updates" | "files" | "activity" | "feedback";
 
 const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
   { id: "overview",  label: "Overview",  Icon: CheckCircle2 },
@@ -43,6 +43,7 @@ const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
   { id: "portal",    label: "Portal",    Icon: Settings },
   { id: "updates",   label: "Updates",   Icon: Clock },
   { id: "files",     label: "Files",     Icon: FileText },
+  { id: "activity",  label: "Activity",  Icon: History },
   { id: "feedback",  label: "Feedback",  Icon: MessageSquare },
 ];
 
@@ -85,6 +86,101 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         style={{ transform: checked ? "translateX(18px)" : "translateX(2px)" }} />
     </button>
   );
+}
+
+// ─── Activity timeline builder ────────────────────────────────────────────────
+type ActivityEvent = {
+  date: string;
+  timestamp: number;
+  label: string;
+  icon: "file" | "check" | "pen" | "zap";
+  color: string;
+};
+
+function buildActivityTimeline(
+  invoices: Invoice[],
+  contracts: Contract[],
+  proposals: Proposal[],
+  updates: ProjectUpdate[]
+): ActivityEvent[] {
+  const events: ActivityEvent[] = [];
+
+  // Invoices
+  invoices.forEach((inv) => {
+    events.push({
+      date: inv.issueDate,
+      timestamp: new Date(inv.issueDate).getTime(),
+      label: `Invoice #${inv.invoiceNumber} created`,
+      icon: "file",
+      color: "#3B82F6",
+    });
+    if (inv.paidAt) {
+      events.push({
+        date: inv.paidAt,
+        timestamp: new Date(inv.paidAt).getTime(),
+        label: `Invoice #${inv.invoiceNumber} marked paid`,
+        icon: "check",
+        color: "#22C55E",
+      });
+    }
+  });
+
+  // Contracts
+  contracts.forEach((c) => {
+    events.push({
+      date: c.createdAt,
+      timestamp: new Date(c.createdAt).getTime(),
+      label: `Contract "${c.projectName}" created`,
+      icon: "pen",
+      color: "#F59E0B",
+    });
+    if (c.signedAt) {
+      events.push({
+        date: c.signedAt,
+        timestamp: new Date(c.signedAt).getTime(),
+        label: `Contract "${c.projectName}" signed by you`,
+        icon: "check",
+        color: "#22C55E",
+      });
+    }
+    if (c.clientSignedAt) {
+      events.push({
+        date: c.clientSignedAt,
+        timestamp: new Date(c.clientSignedAt).getTime(),
+        label: `Contract "${c.projectName}" signed by client`,
+        icon: "check",
+        color: "#22C55E",
+      });
+    }
+  });
+
+  // Proposals
+  proposals
+    .filter((p) => p.status !== "draft")
+    .forEach((p) => {
+      const sentDate = p.sentAt ?? p.createdAt;
+      events.push({
+        date: sentDate,
+        timestamp: new Date(sentDate).getTime(),
+        label: `Proposal "${p.projectName}" sent`,
+        icon: "zap",
+        color: "#8B5CF6",
+      });
+    });
+
+  // Project updates
+  updates.forEach((u) => {
+    events.push({
+      date: u.createdAt,
+      timestamp: new Date(u.createdAt).getTime(),
+      label: `Project update: "${u.title}"`,
+      icon: "pen",
+      color: "#60a5fa",
+    });
+  });
+
+  // Sort by date (newest first)
+  return events.sort((a, b) => b.timestamp - a.timestamp);
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -286,6 +382,13 @@ export default function ClientDetailPage() {
   };
 
   const unreadFeedback = feedback.filter((f) => !f.isRead).length;
+
+  // Compute activity timeline
+  const activityTimeline = useMemo(
+    () => buildActivityTimeline(invoices, contracts, proposals, updates),
+    [invoices, contracts, proposals, updates]
+  );
+
   const currentYear = new Date().getFullYear();
   const totalEarned = entries
     .filter((e) => new Date(e.date).getFullYear() === currentYear)
@@ -305,8 +408,38 @@ export default function ClientDetailPage() {
         </button>
 
         {isLoading || !client || !portal ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }} />)}
+          <div className="space-y-6 animate-pulse">
+            {/* Header skeleton */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-700 flex-shrink-0" />
+                <div className="space-y-2">
+                  <div className="h-6 bg-slate-700 rounded w-32" />
+                  <div className="h-4 bg-slate-700 rounded w-48" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-8 bg-slate-700 rounded-full w-20" />
+              </div>
+            </div>
+
+            {/* Tabs skeleton */}
+            <div className="flex gap-3 border-b pb-2.5" style={{ borderColor: "var(--border-col)" }}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-6 bg-slate-700 rounded w-20" />
+              ))}
+            </div>
+
+            {/* Content rows skeleton */}
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl p-4 space-y-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
+                  <div className="h-4 bg-slate-700 rounded w-32" />
+                  <div className="h-3 bg-slate-700 rounded w-full" />
+                  <div className="h-3 bg-slate-700 rounded w-5/6" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
@@ -875,6 +1008,56 @@ export default function ClientDetailPage() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Activity Timeline ─────────────────────────────────── */}
+            {tab === "activity" && (
+              <div className="space-y-4">
+                {activityTimeline.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <History className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">No activity yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activityTimeline.map((event, idx) => {
+                      const iconMap = {
+                        file: FileText,
+                        check: CheckCircle2,
+                        pen: FileText,
+                        zap: Zap,
+                      };
+                      const Icon = iconMap[event.icon];
+                      return (
+                        <div key={`${event.timestamp}-${idx}`} className="flex gap-4">
+                          {/* Timeline connector */}
+                          <div className="flex flex-col items-center flex-shrink-0">
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ background: event.color + "20" }}
+                            >
+                              <Icon className="h-4 w-4" style={{ color: event.color }} />
+                            </div>
+                            {idx < activityTimeline.length - 1 && (
+                              <div
+                                className="w-0.5 h-8 mt-2"
+                                style={{ background: "var(--border-col)" }}
+                              />
+                            )}
+                          </div>
+                          {/* Event content */}
+                          <div className="pt-1 pb-4">
+                            <p className="text-sm font-medium">{event.label}</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {dayjs(event.date).format("MMM D, YYYY")}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

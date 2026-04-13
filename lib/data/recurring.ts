@@ -14,16 +14,18 @@ const LAST_RUN_KEY = "recurring_last_run";
  *
  * Returns newly created entries (empty array when nothing was due).
  *
+ * @param existingEntries - Optional pre-fetched entries to avoid double-fetching
+ *
  * TODO: Replace with a Supabase scheduled function / cron job when backend is ready.
  */
-export async function processRecurringIncome(): Promise<IncomeEntry[]> {
+export async function processRecurringIncome(existingEntries?: IncomeEntry[]): Promise<IncomeEntry[]> {
   // Only run once per calendar day to avoid creating duplicates on re-renders
   const today = dayjs().format("YYYY-MM-DD");
   const lastRun = loadObject<string>(LAST_RUN_KEY, "");
   if (lastRun === today) return [];
   saveObject(LAST_RUN_KEY, today);
 
-  const allEntries = await getIncomeEntries();
+  const allEntries = existingEntries ?? await getIncomeEntries();
   const recurring = allEntries.filter((e) => e.isRecurring && e.recurringId);
   if (recurring.length === 0) return [];
 

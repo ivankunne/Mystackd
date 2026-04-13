@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Lock } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProGateModal } from "@/components/ui/pro-gate-modal";
 import { SourceCard } from "@/components/connections/SourceCard";
 import { AddIncomeModal } from "@/components/connections/AddIncomeModal";
 import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
@@ -17,22 +19,34 @@ export default function ConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [manualEntries, setManualEntries] = useState<IncomeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showProModal, setShowProModal] = useState(false);
+
+  const connectedCount = connections.filter((c) => c.status === "connected").length;
+  const canAddConnection = user?.isPro || connectedCount < 1;
 
   useEffect(() => {
     if (!authLoading && !user) { router.push("/login"); return; }
   }, [user, router]);
 
   useEffect(() => {
+    if (!user?.id) return;
     let mounted = true;
-    Promise.all([getConnections(user?.id), getIncomeEntries(user?.id)]).then(
-      ([conns, entries]) => {
+    Promise.all([getConnections(user.id), getIncomeEntries(user.id)])
+      .then(([conns, entries]) => {
         if (mounted) {
           setConnections(conns);
           setManualEntries(entries.filter((e) => e.source === "manual"));
           setIsLoading(false);
         }
-      }
-    );
+      })
+      .catch((err) => {
+        console.error("Error loading connections:", err);
+        if (mounted) {
+          setConnections([]);
+          setManualEntries([]);
+          setIsLoading(false);
+        }
+      });
     return () => {
       mounted = false;
     };
@@ -52,6 +66,12 @@ export default function ConnectionsPage() {
 
   return (
     <AppShell title="Connections">
+      <ProGateModal
+        isOpen={showProModal}
+        onClose={() => setShowProModal(false)}
+        feature="Multiple Income Connections"
+        description="Connect unlimited income sources including Stripe, PayPal, Upwork, and Fiverr. Sync earnings automatically and keep all income in one place."
+      />
       <div className="p-5 lg:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -61,8 +81,33 @@ export default function ConnectionsPage() {
               Connect your platforms or add income manually
             </p>
           </div>
-          <AddIncomeModal onAdded={handleEntryAdded} />
+          {canAddConnection ? (
+            <AddIncomeModal onAdded={handleEntryAdded} />
+          ) : (
+            <button
+              onClick={() => setShowProModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-opacity hover:opacity-80"
+              style={{ background: "#fbbf2420", color: "#fbbf24", border: "1px solid #fbbf2430" }}
+            >
+              <Lock className="h-4 w-4" />
+              Add another source
+            </button>
+          )}
         </div>
+
+        {/* Connection limit notice for free users */}
+        {!user?.isPro && connectedCount > 0 && (
+          <div
+            className="rounded-xl p-4 flex items-start gap-3"
+            style={{ background: "#fbbf2415", border: "1px solid #fbbf2430" }}
+          >
+            <Lock className="h-5 w-5 mt-0.5 flex-shrink-0" style={{ color: "#fbbf24" }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#fbbf24" }}>Free plan limited to 1 connection</p>
+              <p className="text-xs text-slate-400 mt-0.5">Upgrade to Pro to connect unlimited income sources from Stripe, PayPal, Upwork, Fiverr, and more.</p>
+            </div>
+          </div>
+        )}
 
         {/* Source cards grid */}
         {isLoading ? (

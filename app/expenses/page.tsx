@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Plus, Receipt, Trash2, TrendingDown, AlertTriangle, RefreshCw, Search } from "lucide-react";
+import { Plus, Receipt, Trash2, TrendingDown, AlertTriangle, RefreshCw, Search, Download, ChevronUp, ChevronDown } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import { processRecurringExpenses } from "@/lib/data/recurringExpenses";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { formatCurrency } from "@/lib/calculations";
+import { exportExpensesCSV } from "@/lib/csv";
 import type { Expense, ExpenseCategory, Currency } from "@/lib/mock-data";
 
 const CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
@@ -90,6 +91,12 @@ export default function ExpensesPage() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterCategory, setFilterCategory] = useState<ExpenseCategory | "all">("all");
   const [search, setSearch] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [sortKey, setSortKey] = useState<"date" | "amount" | "category">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [pageIndex, setPageIndex] = useState(0);
+  const ITEMS_PER_PAGE = 20;
 
   // Form state
   const [fDate, setFDate] = useState(dayjs().format("YYYY-MM-DD"));
@@ -108,16 +115,19 @@ export default function ExpensesPage() {
   useEffect(() => {
     if (authLoading) return; // wait until auth is resolved before fetching
     let mounted = true;
-    Promise.all([
-      getExpenses(user?.id),
-      processRecurringExpenses(),
-    ]).then(([data, newRecurring]) => {
+    getExpenses(user?.id).then(async (data) => {
       if (!mounted) return;
-      const merged = newRecurring.length > 0
-        ? [...newRecurring, ...data.filter((e) => !newRecurring.some((n) => n.id === e.id))]
-        : data;
-      setExpenses(merged);
-      setIsLoading(false);
+      try {
+        // Process recurring expenses with pre-fetched expenses (avoid double-fetch)
+        const newRecurring = await processRecurringExpenses(data);
+        const merged = newRecurring.length > 0
+          ? [...newRecurring, ...data.filter((e) => !newRecurring.some((n) => n.id === e.id))]
+          : data;
+        setExpenses(merged);
+        setIsLoading(false);
+      } catch {
+        if (mounted) setIsLoading(false);
+      }
     }).catch(() => {
       if (mounted) setIsLoading(false);
     });
@@ -128,14 +138,44 @@ export default function ExpensesPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return expenses.filter((e) => {
+    let result = expenses.filter((e) => {
       const year = new Date(e.date).getFullYear();
-      if (year !== filterYear) return false;
+      // Use date range if provided, otherwise fall back to year filter
+      if (filterFrom || filterTo) {
+        if (filterFrom && e.date < filterFrom) return false;
+        if (filterTo && e.date > filterTo) return false;
+      } else {
+        if (year !== filterYear) return false;
+      }
       if (filterCategory !== "all" && e.category !== filterCategory) return false;
       if (q && !e.description.toLowerCase().includes(q) && !(e.vendor ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [expenses, filterYear, filterCategory, search]);
+
+    // Apply sorting
+    const sorted = [...result].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "date") {
+        cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortKey === "amount") {
+        cmp = a.amount - b.amount;
+      } else if (sortKey === "category") {
+        cmp = a.category.localeCompare(b.category);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return sorted;
+  }, [expenses, filterYear, filterCategory, search, filterFrom, filterTo, sortKey, sortDir]);
+
+  // Reset pageIndex when filters/sort change
+  useEffect(() => {
+    setPageIndex(0);
+  }, [filterYear, filterCategory, search, filterFrom, filterTo, sortKey, sortDir]);
+
+  const paginated = useMemo(() => {
+    return filtered.slice(pageIndex * ITEMS_PER_PAGE, (pageIndex + 1) * ITEMS_PER_PAGE);
+  }, [filtered, pageIndex]);
 
   const stats = useMemo(() => {
     const ytd = expenses.filter((e) => new Date(e.date).getFullYear() === currentYear);
@@ -224,6 +264,14 @@ export default function ExpensesPage() {
             />
           </div>
           <span className="text-sm text-slate-500 flex-shrink-0">{filtered.length} expenses</span>
+          <Button
+            onClick={() => exportExpensesCSV(filtered)}
+            className="font-semibold flex-shrink-0 gap-2 text-xs"
+            style={{ background: "var(--border-col)", color: "#94a3b8" }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
           <Button
             onClick={() => setCreateOpen(true)}
             className="font-semibold flex-shrink-0"
@@ -415,47 +463,118 @@ export default function ExpensesPage() {
         )}
 
         {/* Filters */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={filterYear}
-            onChange={(e) => setFilterYear(Number(e.target.value))}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border text-slate-300"
-            style={{ background: "var(--bg-card)", borderColor: "var(--border-col)" }}
-          >
-            {[currentYear, currentYear - 1].map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => setFilterCategory("all")}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-            style={{
-              background: filterCategory === "all" ? "#22C55E" : "var(--border-col)",
-              color: filterCategory === "all" ? "var(--bg-sidebar)" : "#94a3b8",
-            }}
-          >
-            All
-          </button>
-          {CATEGORIES.map((cat) => (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={filterYear}
+              onChange={(e) => setFilterYear(Number(e.target.value))}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border text-slate-300"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border-col)" }}
+            >
+              {[currentYear, currentYear - 1].map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            {/* Date range filters */}
+            <input
+              type="date"
+              value={filterFrom}
+              onChange={(e) => setFilterFrom(e.target.value)}
+              className="auth-input text-xs px-3 py-1.5 rounded-lg border text-slate-300"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border-col)" }}
+              placeholder="From"
+            />
+            <input
+              type="date"
+              value={filterTo}
+              onChange={(e) => setFilterTo(e.target.value)}
+              className="auth-input text-xs px-3 py-1.5 rounded-lg border text-slate-300"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border-col)" }}
+              placeholder="To"
+            />
+          </div>
+
+          {/* Sort pills */}
+          {!isLoading && filtered.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { key: "date" as const, label: "Date" },
+                { key: "amount" as const, label: "Amount" },
+                { key: "category" as const, label: "Category" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (sortKey === key) {
+                      setSortDir(sortDir === "asc" ? "desc" : "asc");
+                    } else {
+                      setSortKey(key);
+                      setSortDir("asc");
+                    }
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
+                  style={{
+                    background: sortKey === key ? "#22C55E" : "var(--border-col)",
+                    color: sortKey === key ? "white" : "#94a3b8",
+                  }}
+                >
+                  {label}
+                  {sortKey === key && (
+                    sortDir === "asc" ?
+                      <ChevronUp className="h-3 w-3" /> :
+                      <ChevronDown className="h-3 w-3" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              key={cat.value}
-              onClick={() => setFilterCategory(filterCategory === cat.value ? "all" : cat.value)}
+              onClick={() => setFilterCategory("all")}
               className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
               style={{
-                background: filterCategory === cat.value ? CATEGORY_COLORS[cat.value] : "var(--border-col)",
-                color: filterCategory === cat.value ? "#fff" : "#94a3b8",
+                background: filterCategory === "all" ? "#22C55E" : "var(--border-col)",
+                color: filterCategory === "all" ? "var(--bg-sidebar)" : "#94a3b8",
               }}
             >
-              {cat.emoji} {cat.label}
+              All
             </button>
-          ))}
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => setFilterCategory(filterCategory === cat.value ? "all" : cat.value)}
+                className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                style={{
+                  background: filterCategory === cat.value ? CATEGORY_COLORS[cat.value] : "var(--border-col)",
+                  color: filterCategory === cat.value ? "#fff" : "#94a3b8",
+                }}
+              >
+                {cat.emoji} {cat.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Expense list */}
         {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-xl h-14 animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }} />
+          <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
+            <div className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1fr_140px_100px_40px] gap-4 px-5 py-3 border-b" style={{ borderColor: "var(--border-col)" }}>
+              <span className="text-xs font-medium text-slate-500">Description</span>
+              <span className="text-xs font-medium text-slate-500 hidden sm:block">Category</span>
+              <span className="text-xs font-medium text-slate-500 text-right">Amount</span>
+              <span />
+            </div>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1fr_140px_100px_40px] gap-4 px-5 py-3.5 items-center" style={{ borderTop: "1px solid var(--border-col)30" }}>
+                <div className="space-y-2">
+                  <div className="h-4 w-32 bg-slate-700 rounded animate-pulse"></div>
+                  <div className="h-3 w-24 bg-slate-700 rounded animate-pulse"></div>
+                </div>
+                <div className="hidden sm:block h-6 w-20 bg-slate-700 rounded animate-pulse"></div>
+                <div className="h-4 w-16 bg-slate-700 rounded animate-pulse"></div>
+                <div />
+              </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -476,7 +595,7 @@ export default function ExpensesPage() {
               <span className="text-xs font-medium text-slate-500 text-right">Amount</span>
               <span />
             </div>
-            {filtered.map((expense, idx) => (
+            {paginated.map((expense, idx) => (
               <div
                 key={expense.id}
                 className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1fr_140px_100px_40px] gap-4 px-5 py-3.5 items-center hover:bg-white/[0.02] transition-colors"
@@ -516,6 +635,34 @@ export default function ExpensesPage() {
                 </button>
               </div>
             ))}
+
+            {/* Pagination controls */}
+            {filtered.length > ITEMS_PER_PAGE && (
+              <div className="px-5 py-3 border-t flex items-center justify-between gap-4 flex-wrap" style={{ borderColor: "var(--border-col)" }}>
+                <p className="text-xs text-slate-500">
+                  {filtered.length === 0 ? "0 expenses" : `${pageIndex * ITEMS_PER_PAGE + 1}–${Math.min((pageIndex + 1) * ITEMS_PER_PAGE, filtered.length)} of ${filtered.length} expense${filtered.length === 1 ? "" : "s"}`}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPageIndex(Math.max(0, pageIndex - 1))}
+                    disabled={pageIndex === 0}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+                    style={{ background: "var(--border-col)", color: "#94a3b8" }}
+                  >
+                    ← Prev
+                  </button>
+                  <button
+                    onClick={() => setPageIndex(pageIndex + 1)}
+                    disabled={(pageIndex + 1) * ITEMS_PER_PAGE >= filtered.length}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+                    style={{ background: "var(--border-col)", color: "#94a3b8" }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Footer total */}
             <div className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[1fr_140px_100px_40px] gap-4 px-5 py-3 border-t"
               style={{ borderColor: "var(--border-col)" }}>

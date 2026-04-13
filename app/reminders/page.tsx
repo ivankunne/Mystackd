@@ -3,8 +3,9 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Bell, Copy, Check, Clock, AlertTriangle, CheckCircle, Trash2, Mail, Zap, Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { Bell, Copy, Check, Clock, AlertTriangle, CheckCircle, Trash2, Mail, Zap, Settings2, ChevronDown, ChevronUp, Lock } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProGateModal } from "@/components/ui/pro-gate-modal";
 import { getInvoices, updateInvoice } from "@/lib/data/invoices";
 import { getReminderLogs, logReminder, deleteReminderLog } from "@/lib/data/reminders";
 import { addIncomeEntry } from "@/lib/data/income";
@@ -381,6 +382,7 @@ export default function RemindersPage() {
   // ── Reminder schedule state ───────────────────────────────────────────────
   const [rules, setRules] = useState<ReminderRule[]>(DEFAULT_RULES);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
   useEffect(() => { setRules(loadSchedule()); }, []);
 
   const toggleRule = (id: string) => {
@@ -411,6 +413,12 @@ export default function RemindersPage() {
 
   return (
     <AppShell title="Payment Reminders">
+      <ProGateModal
+        isOpen={showProModal}
+        onClose={() => setShowProModal(false)}
+        feature="Automated Payment Reminders"
+        description="Set up automatic reminder schedules that trigger payment follow-ups at the right time. Get paid faster with intelligent reminder timing."
+      />
       <div className="p-5 lg:p-6 space-y-6">
 
         {/* Summary banner */}
@@ -621,24 +629,38 @@ export default function RemindersPage() {
         >
           <button
             className="w-full px-5 py-4 flex items-center justify-between gap-3"
-            onClick={() => setScheduleOpen((v) => !v)}
+            onClick={() => {
+              if (!user?.isPro) {
+                setShowProModal(true);
+              } else {
+                setScheduleOpen((v) => !v);
+              }
+            }}
           >
             <div className="flex items-center gap-2">
               <Settings2 className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
               <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                 Reminder schedule
               </p>
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#22C55E20", color: "#22C55E" }}>
-                {rules.filter((r) => r.enabled).length} active
-              </span>
+              {!user?.isPro && (
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1" style={{ background: "#fbbf2430", color: "#fbbf24" }}>
+                  <Lock className="h-3 w-3" />
+                  Pro
+                </span>
+              )}
+              {user?.isPro && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#22C55E20", color: "#22C55E" }}>
+                  {rules.filter((r) => r.enabled).length} active
+                </span>
+              )}
             </div>
-            {scheduleOpen
+            {scheduleOpen || user?.isPro
               ? <ChevronUp className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
               : <ChevronDown className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
             }
           </button>
 
-          {scheduleOpen && (
+          {scheduleOpen && user?.isPro && (
             <div className="px-5 pb-5 border-t space-y-3" style={{ borderColor: "var(--border-col)" }}>
               <p className="text-xs pt-4" style={{ color: "var(--text-muted)" }}>
                 Enable the triggers below. MyStackd will surface matching invoices as suggestions on this page so you can send them in one click.

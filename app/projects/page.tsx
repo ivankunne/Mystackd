@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Plus, Layers, ArrowRight, CheckCircle } from "lucide-react";
+import { Plus, Layers, ArrowRight, CheckCircle, Search, Download, ChevronUp, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { getInvoices } from "@/lib/data/invoices";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { formatCurrency } from "@/lib/calculations";
+import { exportProjectsCSV } from "@/lib/csv";
 import type { Project, ProjectStatus, Client, Currency, Proposal } from "@/lib/mock-data";
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -53,9 +54,14 @@ export default function ProjectsPage() {
   const [billedByProject, setBilledByProject] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "status" | "budget" | "client">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [pageIndex, setPageIndex] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [convertingProposalId, setConvertingProposalId] = useState<string | null>(null);
+  const ITEMS_PER_PAGE = 20;
 
   // Form
   const [formClientId, setFormClientId] = useState("");
@@ -124,10 +130,43 @@ export default function ProjectsPage() {
     return () => { mounted = false; };
   }, [user?.id]);
 
-  const filtered = useMemo(() =>
-    filterStatus === "all" ? projects : projects.filter((p) => p.status === filterStatus),
-    [projects, filterStatus]
-  );
+  const filtered = useMemo(() => {
+    let result = projects;
+    if (filterStatus !== "all") {
+      result = result.filter((p) => p.status === filterStatus);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(q) || (p.clientName ?? "").toLowerCase().includes(q)
+      );
+    }
+    // Apply sorting
+    const sorted = [...result].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "name") {
+        cmp = a.name.localeCompare(b.name);
+      } else if (sortKey === "client") {
+        cmp = (a.clientName ?? "").localeCompare(b.clientName ?? "");
+      } else if (sortKey === "budget") {
+        cmp = (a.budgetAmount ?? 0) - (b.budgetAmount ?? 0);
+      } else if (sortKey === "status") {
+        const statusOrder: Record<ProjectStatus, number> = { "active": 0, "on-hold": 1, "completed": 2, "cancelled": 3 };
+        cmp = (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [projects, filterStatus, search, sortKey, sortDir]);
+
+  // Reset pageIndex when filters/sort changes
+  useEffect(() => {
+    setPageIndex(0);
+  }, [filterStatus, search, sortKey, sortDir]);
+
+  const paginated = useMemo(() => {
+    return filtered.slice(pageIndex * ITEMS_PER_PAGE, (pageIndex + 1) * ITEMS_PER_PAGE);
+  }, [filtered, pageIndex]);
 
   const stats = useMemo(() => ({
     active: projects.filter((p) => p.status === "active").length,
@@ -142,6 +181,7 @@ export default function ProjectsPage() {
     const updated = await updateProject(proj.id, { status });
     setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p));
     setUpdatingStatus(null);
+    toast("Project status updated");
   };
 
   const handleCreate = async () => {
@@ -162,6 +202,7 @@ export default function ProjectsPage() {
         notes: formNotes || undefined,
       });
       setProjects((prev) => [p, ...prev]);
+      toast(`Project "${p.name}" created`);
       setCreateOpen(false);
       setFormClientId(""); setFormName(""); setFormBudget(""); setFormNotes("");
       setFormStartDate(dayjs().format("YYYY-MM-DD")); setFormEndDate("");
@@ -241,7 +282,18 @@ export default function ProjectsPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search by name or client…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 w-full pl-8 pr-3 rounded-lg text-sm border"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border-col)" }}
+            />
+          </div>
           <div className="flex gap-1.5 flex-wrap">
             {(["all", "active", "on-hold", "completed", "cancelled"] as const).map((s) => (
               <button key={s} onClick={() => setFilterStatus(s)}
@@ -255,8 +307,16 @@ export default function ProjectsPage() {
               </button>
             ))}
           </div>
+          <Button
+            onClick={() => exportProjectsCSV(filtered)}
+            className="font-semibold flex-shrink-0 gap-2 text-xs"
+            style={{ background: "var(--border-col)", color: "#94a3b8" }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
           <Button onClick={() => setCreateOpen(true)}
-            className="font-semibold" style={{ background: "#22C55E", color: "var(--bg-sidebar)" }}>
+            className="font-semibold flex-shrink-0" style={{ background: "#22C55E", color: "var(--bg-sidebar)" }}>
             <Plus className="h-4 w-4 mr-1.5" /> New Project
           </Button>
         </div>
@@ -300,21 +360,106 @@ export default function ProjectsPage() {
           </div>
         )}
 
+        {/* Sort pills */}
+        {!isLoading && projects.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { key: "name" as const, label: "Name" },
+              { key: "client" as const, label: "Client" },
+              { key: "budget" as const, label: "Budget" },
+              { key: "status" as const, label: "Status" },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  if (sortKey === key) {
+                    setSortDir(sortDir === "asc" ? "desc" : "asc");
+                  } else {
+                    setSortKey(key);
+                    setSortDir("asc");
+                  }
+                }}
+                className="text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
+                style={{
+                  background: sortKey === key ? "#22C55E" : "var(--border-col)",
+                  color: sortKey === key ? "white" : "#94a3b8",
+                }}
+              >
+                {label}
+                {sortKey === key && (
+                  sortDir === "asc" ?
+                    <ChevronUp className="h-3 w-3" /> :
+                    <ChevronDown className="h-3 w-3" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Project list */}
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 rounded-xl animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }} />
+              <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
+                {/* Header with title and status badge */}
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="h-4 bg-slate-700 rounded w-32" />
+                    <div className="h-3 bg-slate-700 rounded w-64" />
+                  </div>
+                  <div className="h-6 bg-slate-700 rounded-full w-24 flex-shrink-0" />
+                </div>
+                {/* Metrics grid - 4 columns */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="space-y-2">
+                      <div className="h-3 bg-slate-700 rounded w-16" />
+                      <div className="h-4 bg-slate-700 rounded w-24" />
+                    </div>
+                  ))}
+                </div>
+                {/* Budget progress bar */}
+                <div className="space-y-2">
+                  <div className="h-3 bg-slate-700 rounded w-48" />
+                  <div className="h-1.5 bg-slate-700 rounded-full" />
+                </div>
+              </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : projects.length === 0 ? (
           <div className="py-16 text-center">
             <Layers className="h-10 w-10 text-slate-600 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No projects found. Create your first project.</p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <Layers className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 mb-4">No projects match your filters.</p>
+            <div className="flex gap-2 justify-center flex-wrap">
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                  style={{ background: "#22C55E", color: "white" }}
+                >
+                  Clear search
+                </button>
+              )}
+              {filterStatus !== "all" && (
+                <button
+                  onClick={() => setFilterStatus("all")}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                  style={{ background: "#22C55E", color: "white" }}
+                >
+                  Show all statuses
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((proj) => {
+          <div className="space-y-5">
+            <div className="space-y-3">
+              {paginated.map((proj) => {
               const trackedHrs = getTrackedHours(proj);
               const timeCost = getTimeCost(proj);
               const billed = getBilledAmount(proj);
@@ -430,7 +575,35 @@ export default function ProjectsPage() {
                   )}
                 </div>
               );
-            })}
+              })}
+            </div>
+
+            {/* Pagination */}
+            {filtered.length > 0 && (
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <p className="text-xs text-slate-500">
+                  {filtered.length === 0 ? "0 projects" : `${pageIndex * ITEMS_PER_PAGE + 1}–${Math.min((pageIndex + 1) * ITEMS_PER_PAGE, filtered.length)} of ${filtered.length} project${filtered.length === 1 ? "" : "s"}`}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPageIndex(Math.max(0, pageIndex - 1))}
+                    disabled={pageIndex === 0}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+                    style={{ background: "var(--border-col)", color: "#94a3b8" }}
+                  >
+                    ← Prev
+                  </button>
+                  <button
+                    onClick={() => setPageIndex(pageIndex + 1)}
+                    disabled={(pageIndex + 1) * ITEMS_PER_PAGE >= filtered.length}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+                    style={{ background: "var(--border-col)", color: "#94a3b8" }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Plus, Users, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { Plus, Users, ChevronDown, ChevronUp, Search, Trash2, Download } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,13 +15,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { getClients, createClient } from "@/lib/data/clients";
+import { getClients, createClient, deleteClient } from "@/lib/data/clients";
 import { getInvoices } from "@/lib/data/invoices";
 import { getIncomeEntries } from "@/lib/data/income";
-import { getPortal } from "@/lib/data/portal";
+import { getAllPortals } from "@/lib/data/portal";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { formatCurrency } from "@/lib/calculations";
+import { exportClientsCSV } from "@/lib/csv";
 import type { Client, Invoice, IncomeEntry, ClientPortal } from "@/lib/mock-data";
 
 export default function ClientsPage() {
@@ -36,17 +37,33 @@ export default function ClientsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<"name-asc" | "name-desc" | "recent">("recent");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const ITEMS_PER_PAGE = 20;
 
   const filteredClients = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.company ?? "").toLowerCase().includes(q) ||
-        (c.email ?? "").toLowerCase().includes(q)
-    );
-  }, [clients, search]);
+    let result = clients;
+    if (q) {
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.company ?? "").toLowerCase().includes(q) ||
+          (c.email ?? "").toLowerCase().includes(q)
+      );
+    }
+    // Apply sorting
+    if (sortBy === "name-asc") {
+      result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === "name-desc") {
+      result = [...result].sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sortBy === "recent") {
+      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return result;
+  }, [clients, search, sortBy]);
 
   // New client form
   const [newName, setNewName] = useState("");
@@ -66,16 +83,17 @@ export default function ClientsPage() {
       getClients(user?.id),
       getInvoices(user?.id),
       getIncomeEntries(user?.id),
-    ]).then(async ([c, inv, ent]) => {
+      getAllPortals(),
+    ]).then(([c, inv, ent, portalsData]) => {
       if (!mounted) return;
       setClients(c);
       setInvoices(inv);
       setEntries(ent);
-      // Load portal status for each client
+      // Build portal map from getAllPortals result
       const portalMap: Record<string, ClientPortal | null> = {};
-      await Promise.all(c.map(async (cl) => {
-        portalMap[cl.id] = await getPortal(cl.id);
-      }));
+      portalsData.forEach((portal) => {
+        portalMap[portal.clientId] = portal;
+      });
       if (mounted) {
         setPortals(portalMap);
         setIsLoading(false);
@@ -84,18 +102,55 @@ export default function ClientsPage() {
     return () => { mounted = false; };
   }, [user?.id]);
 
+  const paginatedClients = useMemo(() => {
+    return filteredClients.slice(pageIndex * ITEMS_PER_PAGE, (pageIndex + 1) * ITEMS_PER_PAGE);
+  }, [filteredClients, pageIndex]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPageIndex(0);
+  }, [search, sortBy]);
+
   const currentYear = new Date().getFullYear();
 
-  const getClientStats = (clientName: string) => {
-    const clientEntries = entries.filter((e) => e.clientName === clientName);
-    const clientInvoices = invoices.filter((inv) => inv.clientName === clientName);
-    const totalEarned = clientEntries
+  const getTotalEarnedThisYear = useMemo(() => {
+    return entries
       .filter((e) => new Date(e.date).getFullYear() === currentYear)
       .reduce((sum, e) => sum + e.amount, 0);
-    const lastEntry = clientEntries.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
-    return { totalEarned, invoiceCount: clientInvoices.length, lastPayment: lastEntry?.date ?? null, entries: clientEntries, invoices: clientInvoices };
+  }, [entries]);
+
+  // Type for client stats
+  type ClientStats = { totalEarned: number; invoiceCount: number; lastPayment: string | null; entries: IncomeEntry[]; invoices: Invoice[] };
+
+  // Pre-compute stats for all clients to avoid O(n) filtering per render
+  const clientStatsMap = useMemo<Record<string, ClientStats>>(() => {
+    const map: Record<string, ClientStats> = {};
+    const uniqueClientNames = new Set<string>();
+
+    entries.forEach((e) => {
+      if (e.clientName) uniqueClientNames.add(e.clientName);
+    });
+    invoices.forEach((inv) => {
+      if (inv.clientName) uniqueClientNames.add(inv.clientName);
+    });
+
+    uniqueClientNames.forEach((clientName) => {
+      const clientEntries = entries.filter((e) => e.clientName === clientName);
+      const clientInvoices = invoices.filter((inv) => inv.clientName === clientName);
+      const totalEarned = clientEntries
+        .filter((e) => new Date(e.date).getFullYear() === currentYear)
+        .reduce((sum, e) => sum + e.amount, 0);
+      const lastEntry = clientEntries.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      )[0];
+      map[clientName] = { totalEarned, invoiceCount: clientInvoices.length, lastPayment: lastEntry?.date ?? null, entries: clientEntries, invoices: clientInvoices };
+    });
+
+    return map;
+  }, [entries, invoices, currentYear]);
+
+  const getClientStats = (clientName: string): ClientStats => {
+    return clientStatsMap[clientName] ?? { totalEarned: 0, invoiceCount: 0, lastPayment: null, entries: [], invoices: [] };
   };
 
   const handleCreate = async () => {
@@ -119,12 +174,58 @@ export default function ClientsPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedClients.size === 0) return;
+    const confirm = window.confirm(`Delete ${selectedClients.size} client${selectedClients.size > 1 ? "s" : ""}? This cannot be undone.`);
+    if (!confirm) return;
+    setIsDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedClients).map((id) => deleteClient(id)));
+      setClients((prev) => prev.filter((c) => !selectedClients.has(c.id)));
+      setSelectedClients(new Set());
+      toast(`${selectedClients.size} client${selectedClients.size > 1 ? "s" : ""} deleted`);
+    } catch (err) {
+      toast("Failed to delete clients", "error");
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const inputClass = "h-9 text-sm";
   const labelClass = "text-xs font-medium";
 
   return (
     <AppShell title="Clients">
       <div className="p-5 lg:p-6 space-y-5">
+        {/* Stat strip */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Total clients</p>
+            <p className="text-lg font-semibold">{clients.length}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Earned this year</p>
+            <p className="text-lg font-semibold">{formatCurrency(getTotalEarnedThisYear, user?.currency ?? "EUR")}</p>
+          </div>
+        </div>
+
+        {/* Bulk action toolbar */}
+        {selectedClients.size > 0 && (
+          <div className="w-full px-4 py-3 rounded-lg flex items-center justify-between flex-wrap gap-3" style={{ background: "var(--bg-page)", border: "1px solid var(--border-col)" }}>
+            <span className="text-sm font-medium text-slate-400">{selectedClients.size} selected</span>
+            <button
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-80 flex items-center gap-2"
+              style={{ background: "rgba(220, 38, 38, 0.1)", color: "#dc2626" }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {isDeleting ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        )}
+
         {/* Top bar */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
@@ -138,21 +239,91 @@ export default function ClientsPage() {
               style={{ background: "var(--bg-card)", borderColor: "var(--border-col)" }}
             />
           </div>
-          <span className="text-sm text-slate-500 flex-shrink-0">{filteredClients.length} of {clients.length}</span>
-          <Button
-            onClick={() => setCreateOpen(true)}
-            className="font-semibold flex-shrink-0"
-            style={{ background: "#22C55E", color: "var(--bg-sidebar)" }}
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            New Client
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sort pills */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSortBy("recent")}
+                className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+                style={{
+                  background: sortBy === "recent" ? "#22C55E" : "var(--border-col)",
+                  color: sortBy === "recent" ? "white" : "#94a3b8",
+                }}
+              >
+                Recent
+              </button>
+              <button
+                onClick={() => setSortBy("name-asc")}
+                className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+                style={{
+                  background: sortBy === "name-asc" ? "#22C55E" : "var(--border-col)",
+                  color: sortBy === "name-asc" ? "white" : "#94a3b8",
+                }}
+              >
+                A–Z
+              </button>
+              <button
+                onClick={() => setSortBy("name-desc")}
+                className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+                style={{
+                  background: sortBy === "name-desc" ? "#22C55E" : "var(--border-col)",
+                  color: sortBy === "name-desc" ? "white" : "#94a3b8",
+                }}
+              >
+                Z–A
+              </button>
+            </div>
+            <span className="text-sm text-slate-500 flex-shrink-0">{filteredClients.length} of {clients.length}</span>
+            <Button
+              onClick={() => exportClientsCSV(filteredClients)}
+              className="font-semibold flex-shrink-0 gap-2 text-xs"
+              style={{ background: "var(--border-col)", color: "#94a3b8" }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </Button>
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="font-semibold flex-shrink-0"
+              style={{ background: "#22C55E", color: "var(--bg-sidebar)" }}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              New Client
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl h-36 animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }} />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="rounded-xl overflow-hidden animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
+                <div className="w-full px-5 py-4 flex items-center justify-between">
+                  {/* Left: Avatar + name + company */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-700 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <div className="h-4 bg-slate-700 rounded w-32" />
+                      <div className="h-3 bg-slate-700 rounded w-24" />
+                    </div>
+                  </div>
+                  {/* Right: Stats placeholders */}
+                  <div className="hidden sm:flex items-center gap-6">
+                    <div className="text-right space-y-2">
+                      <div className="h-4 bg-slate-700 rounded w-24" />
+                      <div className="h-3 bg-slate-700 rounded w-20" />
+                    </div>
+                    <div className="text-right space-y-2">
+                      <div className="h-4 bg-slate-700 rounded w-20" />
+                      <div className="h-3 bg-slate-700 rounded w-20" />
+                    </div>
+                    <div className="text-right space-y-2">
+                      <div className="h-4 bg-slate-700 rounded w-24" />
+                      <div className="h-3 bg-slate-700 rounded w-20" />
+                    </div>
+                    <div className="w-4 h-4 bg-slate-700 rounded flex-shrink-0" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : clients.length === 0 ? (
@@ -160,9 +331,21 @@ export default function ClientsPage() {
             <Users className="h-10 w-10 text-slate-600 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No clients yet. Add your first client.</p>
           </div>
+        ) : filteredClients.length === 0 ? (
+          <div className="py-16 text-center">
+            <Users className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 mb-4">No clients match your search.</p>
+            <button
+              onClick={() => setSearch("")}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+              style={{ background: "#22C55E", color: "white" }}
+            >
+              Clear search
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
-            {filteredClients.map((client) => {
+            {paginatedClients.map((client) => {
               const stats = getClientStats(client.name);
               const isExpanded = expandedId === client.id;
               return (
@@ -177,6 +360,23 @@ export default function ClientsPage() {
                     onClick={() => setExpandedId(isExpanded ? null : client.id)}
                   >
                     <div className="flex items-center gap-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.has(client.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedClients((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) {
+                              next.add(client.id);
+                            } else {
+                              next.delete(client.id);
+                            }
+                            return next;
+                          });
+                        }}
+                        className="w-4 h-4 cursor-pointer"
+                      />
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                         style={{ background: "#22C55E15", color: "#22C55E" }}
@@ -278,7 +478,7 @@ export default function ClientsPage() {
                         <div>
                           <p className="text-xs font-medium mb-2">Income entries</p>
                           <div className="space-y-1">
-                            {stats.entries.slice(0, 5).map((e) => (
+                            {stats.entries.slice(0, 5).map((e: IncomeEntry) => (
                               <div key={e.id} className="flex items-center justify-between text-sm">
                                 <span className="text-slate-400">{dayjs(e.date).format("MMM D, YYYY")} · {e.note || e.projectName || "—"}</span>
                                 <span className="font-medium">{formatCurrency(e.amount, e.currency)}</span>
@@ -293,7 +493,7 @@ export default function ClientsPage() {
                         <div>
                           <p className="text-xs font-medium mb-2">Invoices</p>
                           <div className="space-y-1">
-                            {stats.invoices.slice(0, 5).map((inv) => (
+                            {stats.invoices.slice(0, 5).map((inv: Invoice) => (
                               <div key={inv.id} className="flex items-center justify-between text-sm">
                                 <span className="text-slate-400 font-mono">{inv.invoiceNumber} · Due {dayjs(inv.dueDate).format("MMM D")}</span>
                                 <span className="font-medium">{formatCurrency(inv.total, inv.currency)}</span>
@@ -307,6 +507,30 @@ export default function ClientsPage() {
                 </div>
               );
             })}
+            {/* Pagination controls */}
+            {filteredClients.length > ITEMS_PER_PAGE && (
+              <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: "var(--border-col)" }}>
+                <button
+                  onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
+                  disabled={pageIndex === 0}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                  style={{ background: "var(--border-col)", color: "#94a3b8" }}
+                >
+                  Previous
+                </button>
+                <span className="text-xs text-slate-500">
+                  {pageIndex * ITEMS_PER_PAGE + 1}–{Math.min((pageIndex + 1) * ITEMS_PER_PAGE, filteredClients.length)} of {filteredClients.length}
+                </span>
+                <button
+                  onClick={() => setPageIndex((i) => i + 1)}
+                  disabled={(pageIndex + 1) * ITEMS_PER_PAGE >= filteredClients.length}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                  style={{ background: "var(--border-col)", color: "#94a3b8" }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

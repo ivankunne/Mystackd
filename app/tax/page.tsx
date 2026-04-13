@@ -3,8 +3,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { CheckCircle2, Clock, AlertTriangle, Calendar, Download } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, Calendar, Download, Lock, Zap } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProGateModal } from "@/components/ui/pro-gate-modal";
 import { Button } from "@/components/ui/button";
 import { getTaxPeriods, getNextTaxDeadline, getQuarterlyTaxEstimate } from "@/lib/tax-calendar";
 import { getIncomeEntries } from "@/lib/data/income";
@@ -23,6 +24,7 @@ export default function TaxPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [reminders, setReminders] = useState<TaxReminder[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
 
   useEffect(() => {
     if (user?.id) getTaxReminders(user.id).then(setReminders);
@@ -131,6 +133,12 @@ export default function TaxPage() {
 
   return (
     <AppShell title="Tax Calendar">
+      <ProGateModal
+        isOpen={showProModal}
+        onClose={() => setShowProModal(false)}
+        feature="Advanced Tax Planning"
+        description="Get quarterly tax estimates, deadline reminders, and optimization strategies. Stay compliant with local tax regulations and reduce your tax burden."
+      />
       <div className="p-5 lg:p-6 space-y-5">
 
         {/* Page header + export */}
@@ -179,6 +187,43 @@ export default function TaxPage() {
             </div>
           </div>
         )}
+
+        {/* Tax Planning (Pro) */}
+        <div
+          className="rounded-xl p-5 border-l-4"
+          style={{ background: "var(--bg-card)", borderColor: "#fbbf24", borderTopColor: "var(--border-col)", borderRightColor: "var(--border-col)", borderBottomColor: "var(--border-col)" }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4" style={{ color: "#fbbf24" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Tax Planning & Optimization</p>
+              {!user?.isPro && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1" style={{ background: "#fbbf2430", color: "#fbbf24" }}>
+                  <Lock className="h-3 w-3" />
+                  Pro
+                </span>
+              )}
+            </div>
+            {!user?.isPro && (
+              <button
+                onClick={() => setShowProModal(true)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                style={{ background: "#fbbf2420", color: "#fbbf24" }}
+              >
+                Unlock →
+              </button>
+            )}
+          </div>
+          {user?.isPro ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Optimize your tax planning with deduction recommendations, quarterly strategy tips, and compliance calendars specific to {country}.
+            </p>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Get personalized tax optimization strategies, deduction recommendations, and compliance tips for {country}.
+            </p>
+          )}
+        </div>
 
         {/* Timeline */}
         <div className="space-y-3">

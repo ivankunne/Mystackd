@@ -74,14 +74,16 @@ export default function DashboardPage() {
   useEffect(() => {
     let mounted = true;
     setIsLoading(true);
+    const incomePromise = getIncomeEntries(user?.id);
     Promise.all([
-      getIncomeEntries(user?.id),
+      incomePromise,
       getExpenses(user?.id),
-      processRecurringIncome(),
       getInvoices(user?.id),
       getAcceptedProposals(user?.id),
-    ]).then(([inc, exp, newRecurring, inv, props]) => {
+    ]).then(async ([inc, exp, inv, props]) => {
       if (mounted) {
+        // Process recurring income with pre-fetched entries (avoid double-fetch)
+        const newRecurring = await processRecurringIncome(inc);
         // Merge any auto-created recurring entries (deduped by id)
         const merged = newRecurring.length > 0
           ? [...newRecurring, ...inc.filter((e) => !newRecurring.some((n) => n.id === e.id))]

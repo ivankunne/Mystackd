@@ -38,11 +38,10 @@ function daysUntil(isoDate: string): number {
 // ─── Insight generators ───────────────────────────────────────────────────────
 
 export function InsightCards({ user, entries }: InsightCardsProps) {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
   const insights = useMemo<Insight[]>(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     const result: Insight[] = [];
 
     // ── 1. Tax deadline countdown ────────────────────────────────────────────
@@ -231,7 +230,7 @@ export function InsightCards({ user, entries }: InsightCardsProps) {
 
     // Sort by priority and return top 3
     return result.sort((a, b) => a.priority - b.priority).slice(0, 3);
-  }, [entries, user, currentMonth, currentYear, now]);
+  }, [entries, user]);
 
   if (insights.length === 0) return null;
 

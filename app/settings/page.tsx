@@ -106,6 +106,7 @@ const NAV = [
   { id: "billing",       label: "Billing",       icon: CreditCard },
   { id: "integrations",  label: "Integrations",  icon: Plug },
   { id: "sharing",       label: "Sharing",       icon: Share2 },
+  { id: "developer",     label: "Developer",     icon: Shield },
   { id: "danger",        label: "Danger Zone",   icon: Trash2, danger: true },
 ] as const;
 
@@ -1120,6 +1121,50 @@ export default function SettingsPage() {
                   <SaveBar saving={paymentSaving} saved={paymentSaved} onSave={onSavePaymentInfo} />
                 </div>
 
+              </div>
+            )}
+
+            {/* ── Developer ──────────────────────────────────────────────── */}
+            {active === "developer" && (
+              <div>
+                <SectionHeader title="Developer Mode" description="Testing utilities for development and feature testing." />
+
+                <div className="rounded-xl p-5 mb-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm font-semibold">Pro Status (Test Mode)</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Toggle your Pro status to test Pro-only features</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newProStatus = !user?.isPro;
+                        updateUser({ isPro: newProStatus });
+                        toast(newProStatus ? "Pro status enabled" : "Pro status disabled", "success");
+                      }}
+                      className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
+                      style={{ background: user?.isPro ? "#22C55E" : "var(--border-col)" }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                        style={{ left: user?.isPro ? "20px" : "2px" }}
+                      />
+                    </button>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    <p className="mb-2">Current: <span className="font-semibold">{user?.isPro ? "✨ Pro" : "Free"}</span></p>
+                    <p>This setting is for testing only and does not affect billing.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl p-5" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-col)" }}>
+                  <p className="text-sm font-semibold mb-2">API Info</p>
+                  <div className="space-y-2 text-xs text-slate-400">
+                    <div><span className="text-slate-500">User ID:</span> {user?.id}</div>
+                    <div><span className="text-slate-500">Email:</span> {user?.email}</div>
+                    <div><span className="text-slate-500">Currency:</span> {user?.currency}</div>
+                  </div>
+                </div>
               </div>
             )}
 

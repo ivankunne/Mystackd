@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Globe, Copy, Check, ExternalLink, Settings, Plus } from "lucide-react";
+import { Globe, Copy, Check, ExternalLink, Settings, Plus, Zap } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { getClients } from "@/lib/data/clients";
 import { getAllPortals, savePortal } from "@/lib/data/portal";
@@ -109,6 +109,93 @@ export default function PortalsPage() {
   });
 
   const activeCount = portals.filter((p) => p.isEnabled).length;
+
+  // If not Pro, show in-page gate
+  if (!user?.isPro && !authLoading) {
+    return (
+      <AppShell title="Client Portals">
+        <div className="p-5 lg:p-6 max-w-2xl mx-auto">
+          <div
+            className="rounded-2xl p-8 text-center space-y-6"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
+          >
+            <div
+              className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto"
+              style={{ background: "#fbbf2420" }}
+            >
+              <Globe className="h-8 w-8" style={{ color: "#fbbf24" }} />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+                Client Portals
+              </p>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Available with Pro
+              </p>
+            </div>
+
+            <p className="text-base leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Personalized portals let clients view proposals, sign contracts, and make payments all in one place. Streamline client collaboration and reduce email clutter.
+            </p>
+
+            <div className="space-y-3 pt-4">
+              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+                What's included with Pro:
+              </p>
+              <div className="space-y-2">
+                {[
+                  "Client portal with custom branding",
+                  "Proposal & contract signing",
+                  "Payment collection",
+                  "File sharing & updates",
+                  "Client feedback & comments",
+                ].map((feature) => (
+                  <div key={feature} className="flex items-center gap-3 text-sm justify-center">
+                    <Zap className="h-4 w-4" style={{ color: "#fbbf24" }} />
+                    <span style={{ color: "var(--text-secondary)" }}>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className="p-4 rounded-xl"
+              style={{ background: "var(--bg-elevated)" }}
+            >
+              <p className="text-xs text-slate-500 mb-1">Pro Plan</p>
+              <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+                €9<span className="text-sm text-slate-500">/month</span>
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                30-day free trial • Cancel anytime
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="flex-1 px-4 py-3 rounded-lg font-medium transition-colors"
+                style={{
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Back to Dashboard
+              </button>
+              <button
+                onClick={() => router.push("/upgrade")}
+                className="flex-1 px-4 py-3 rounded-lg font-medium text-white transition-colors"
+                style={{ background: "#fbbf24", color: "#111827" }}
+              >
+                Start Free Trial
+              </button>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Client Portals">

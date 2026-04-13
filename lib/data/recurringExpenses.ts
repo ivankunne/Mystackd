@@ -13,15 +13,17 @@ const LAST_RUN_KEY = "recurring_expenses_last_run";
  * with the same recurringId already exists for today's year+month.
  *
  * Returns newly created entries (empty array when nothing was due).
+ *
+ * @param existingExpenses - Optional pre-fetched expenses to avoid double-fetching
  */
-export async function processRecurringExpenses(): Promise<Expense[]> {
+export async function processRecurringExpenses(existingExpenses?: Expense[]): Promise<Expense[]> {
   // Only run once per calendar day to avoid duplicates on re-renders
   const today = dayjs().format("YYYY-MM-DD");
   const lastRun = loadObject<string>(LAST_RUN_KEY, "");
   if (lastRun === today) return [];
   saveObject(LAST_RUN_KEY, today);
 
-  const allExpenses = await getExpenses();
+  const allExpenses = existingExpenses ?? await getExpenses();
   const recurring = allExpenses.filter((e) => e.isRecurring && e.recurringId);
   if (recurring.length === 0) return [];
 

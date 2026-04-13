@@ -3,9 +3,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Plus, Download, CheckCircle, Trash2, AlertTriangle, Link2, Check, Search } from "lucide-react";
+import { Plus, Download, CheckCircle, Trash2, AlertTriangle, Link2, Check, Search, ChevronUp, ChevronDown, FileText, Zap } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { ProGateModal } from "@/components/ui/pro-gate-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,7 +27,7 @@ import { getInvoices, createInvoice, updateInvoice, deleteInvoice, processRecurr
 import { getAcceptedProposals, updateProposal } from "@/lib/data/proposals";
 import { addIncomeEntry } from "@/lib/data/income";
 import { getClients } from "@/lib/data/clients";
-import { generateInvoicePDF } from "@/lib/pdf";
+import { exportInvoicesCSV } from "@/lib/csv";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useAlerts } from "@/lib/context/AlertContext";
 import { useToast } from "@/lib/context/ToastContext";
@@ -76,20 +77,86 @@ export default function InvoicesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Invoice["status"] | "all">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState<"dueDate" | "amount" | "issueDate">("issueDate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [pageIndex, setPageIndex] = useState(0);
   const [convertingProposalId, setConvertingProposalId] = useState<string | null>(null);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const ITEMS_PER_PAGE = 20;
+
+  // Dynamic import for PDF generation to avoid loading jsPDF initially
+  const handleGeneratePDF = async (invoice: Invoice) => {
+    setIsGeneratingPDF(true);
+    try {
+      const { generateInvoicePDF } = await import("@/lib/pdf");
+      await generateInvoicePDF(invoice);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   const filteredInvoices = useMemo(() => {
+    let result = invoices;
+
+    // Search filter
     const q = search.trim().toLowerCase();
-    if (!q) return invoices;
-    return invoices.filter(
-      (inv) =>
-        inv.clientName.toLowerCase().includes(q) ||
-        inv.invoiceNumber.toLowerCase().includes(q)
-    );
-  }, [invoices, search]);
+    if (q) {
+      result = result.filter(
+        (inv) =>
+          inv.clientName.toLowerCase().includes(q) ||
+          inv.invoiceNumber.toLowerCase().includes(q)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter((inv) => inv.status === statusFilter);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      result = result.filter((inv) => inv.dueDate >= dateFrom);
+    }
+    if (dateTo) {
+      result = result.filter((inv) => inv.dueDate <= dateTo);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal: string | number = a.issueDate;
+      let bVal: string | number = b.issueDate;
+      if (sortBy === "amount") {
+        aVal = a.total;
+        bVal = b.total;
+      } else if (sortBy === "dueDate") {
+        aVal = a.dueDate;
+        bVal = b.dueDate;
+      }
+
+      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [invoices, search, statusFilter, dateFrom, dateTo, sortBy, sortDir]);
+
+  // Pagination
+  const paginatedInvoices = filteredInvoices.slice(
+    pageIndex * ITEMS_PER_PAGE,
+    (pageIndex + 1) * ITEMS_PER_PAGE
+  );
+
+  // Reset page index when filters change
+  useEffect(() => {
+    setPageIndex(0);
+  }, [search, statusFilter, dateFrom, dateTo, sortBy, sortDir]);
 
   // New invoice form state
   const [newClientName, setNewClientName] = useState("");
@@ -257,6 +324,7 @@ export default function InvoicesPage() {
     const updated = await updateInvoice(inv.id, { status: "sent" });
     setInvoices((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
     refreshAlerts();
+    toast("Invoice marked as sent");
   };
 
   const handleSendInvoice = (inv: Invoice) => {
@@ -284,10 +352,10 @@ export default function InvoicesPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === filteredInvoices.length) {
+    if (selected.size === paginatedInvoices.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(filteredInvoices.map((i) => i.id)));
+      setSelected(new Set(paginatedInvoices.map((i) => i.id)));
     }
   };
 
@@ -362,8 +430,32 @@ export default function InvoicesPage() {
 
   return (
     <AppShell title="Invoices">
+      <ProGateModal
+        isOpen={showProModal}
+        onClose={() => setShowProModal(false)}
+        feature="Recurring Invoices"
+        description="Set up invoices to automatically send on a schedule. Perfect for retainers, subscriptions, and ongoing services. Save hours every month on billing."
+      />
       <div className="p-5 lg:p-6 space-y-5">
-        {/* Top bar */}
+        {/* Filter pills and date range */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {["all", "draft", "sent", "paid", "overdue"].map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status as Invoice["status"] | "all")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors capitalize"
+              style={{
+                background: statusFilter === status ? "#22C55E20" : "var(--bg-elevated)",
+                color: statusFilter === status ? "#22C55E" : "var(--text-secondary)",
+                border: statusFilter === status ? "1px solid #22C55E" : "1px solid var(--border-col)",
+              }}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+
+        {/* Search, date range, and actions */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
@@ -372,14 +464,59 @@ export default function InvoicesPage() {
               placeholder="Search by client or invoice #…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-full pl-8 pr-3 rounded-lg text-sm border"
+              className="h-9 w-full pl-8 pr-3 rounded-lg text-sm border auth-input"
               style={{ background: "var(--bg-card)", borderColor: "var(--border-col)", color: "var(--text-primary)" }}
             />
           </div>
+
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-9 px-3 rounded-lg text-sm border auth-input"
+            style={{ background: "var(--bg-card)", borderColor: "var(--border-col)", color: "var(--text-primary)" }}
+            title="From date"
+          />
+
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-9 px-3 rounded-lg text-sm border auth-input"
+            style={{ background: "var(--bg-card)", borderColor: "var(--border-col)", color: "var(--text-primary)" }}
+            title="To date"
+          />
+
+          {(dateFrom || dateTo || statusFilter !== "all" || search) && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("all");
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors flex-shrink-0"
+              style={{ color: "#64748b", background: "var(--bg-elevated)" }}
+            >
+              Clear filters
+            </button>
+          )}
+
           <span className="text-sm text-slate-500 flex-shrink-0">
             {filteredInvoices.length} of {invoices.length}
           </span>
-            <Button
+
+          <Button
+            onClick={() => exportInvoicesCSV(filteredInvoices)}
+            size="sm"
+            className="font-semibold flex-shrink-0"
+            style={{ background: "#f59e0b15", color: "#f59e0b", border: "1px solid #f59e0b30" }}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Export
+          </Button>
+
+          <Button
             onClick={() => setCreateOpen(true)}
             className="font-semibold flex-shrink-0"
             style={{ background: "#16a34a", color: "#ffffff" }}
@@ -486,12 +623,81 @@ export default function InvoicesPage() {
           </div>
         )}
 
+        {/* Recurring Invoices Section - Pro Feature */}
+        {!isLoading && (
+          <div
+            className="rounded-xl p-4 space-y-3 border-l-4"
+            style={{ background: "var(--bg-card)", borderColor: "#fbbf24", borderTopColor: "var(--border-col)", borderRightColor: "var(--border-col)", borderBottomColor: "var(--border-col)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4" style={{ color: "#fbbf24" }} />
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Recurring Invoices</p>
+                {!user?.isPro && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "#fbbf2430", color: "#fbbf24" }}>
+                    Pro
+                  </span>
+                )}
+              </div>
+              {!user?.isPro ? (
+                <button
+                  onClick={() => setShowProModal(true)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                  style={{ background: "#fbbf2420", color: "#fbbf24" }}
+                >
+                  Upgrade to Pro →
+                </button>
+              ) : (
+                <Button
+                  onClick={() => setCreateOpen(true)}
+                  size="sm"
+                  className="font-semibold flex-shrink-0"
+                  style={{ background: "#fbbf24", color: "#111827" }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Recurring
+                </Button>
+              )}
+            </div>
+            {user?.isPro ? (
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Set up invoices that automatically send on a schedule. Save time on repetitive billing.
+              </p>
+            ) : (
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Automatically bill clients on a schedule without manual work. Perfect for retainers and subscriptions.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Invoice table */}
         {isLoading ? (
           <div
-            className="rounded-xl h-48 animate-pulse"
+            className="rounded-xl overflow-hidden"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
-          />
+          >
+            <div className="hidden sm:block">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex px-5 py-3 border-b gap-5" style={{ borderColor: "var(--border-col)" }}>
+                  <div className="w-8 h-8 rounded animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+                  <div className="h-4 w-20 rounded animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+                  <div className="h-4 w-32 rounded animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+                  <div className="h-4 w-24 rounded animate-pulse ml-auto" style={{ background: "var(--bg-elevated)" }} />
+                  <div className="h-4 w-20 rounded animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+                </div>
+              ))}
+            </div>
+            <div className="sm:hidden space-y-3 p-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="space-y-2 p-3 rounded-lg" style={{ background: "var(--bg-elevated)" }}>
+                  <div className="h-4 w-24 rounded animate-pulse" style={{ background: "var(--bg-card)" }} />
+                  <div className="h-4 w-full rounded animate-pulse" style={{ background: "var(--bg-card)" }} />
+                  <div className="h-4 w-32 rounded animate-pulse" style={{ background: "var(--bg-card)" }} />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div
             className="rounded-xl overflow-hidden"
@@ -534,28 +740,64 @@ export default function InvoicesPage() {
                     <th className="px-5 py-3 w-8">
                       <input
                         type="checkbox"
-                        checked={selected.size === filteredInvoices.length && filteredInvoices.length > 0}
+                        checked={selected.size === paginatedInvoices.length && paginatedInvoices.length > 0}
                         onChange={toggleSelectAll}
                         className="rounded border-slate-600 cursor-pointer accent-green-500"
                       />
                     </th>
-                    {["Invoice #", "Client", "Amount", "Status", "Due Date", "Actions"].map((h) => (
-                      <th
-                        key={h}
-                        className={`text-xs font-medium text-slate-500 px-5 py-3 ${h === "Amount" || h === "Actions" ? "text-right" : "text-left"}`}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                    <th className="px-5 py-3 text-left">
+                      <span className="text-xs font-medium text-slate-500">Invoice #</span>
+                    </th>
+                    <th className="px-5 py-3 text-left">
+                      <span className="text-xs font-medium text-slate-500">Client</span>
+                    </th>
+                    <th className="px-5 py-3 text-right cursor-pointer hover:opacity-70 transition-opacity"
+                      onClick={() => {
+                        if (sortBy === "amount") {
+                          setSortDir(sortDir === "asc" ? "desc" : "asc");
+                        } else {
+                          setSortBy("amount");
+                          setSortDir("desc");
+                        }
+                      }}
+                      style={{ userSelect: "none" }}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-xs font-medium text-slate-500">Amount</span>
+                        {sortBy === "amount" && (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </th>
+                    <th className="px-5 py-3 text-left">
+                      <span className="text-xs font-medium text-slate-500">Status</span>
+                    </th>
+                    <th className="px-5 py-3 text-left cursor-pointer hover:opacity-70 transition-opacity"
+                      onClick={() => {
+                        if (sortBy === "dueDate") {
+                          setSortDir(sortDir === "asc" ? "desc" : "asc");
+                        } else {
+                          setSortBy("dueDate");
+                          setSortDir("desc");
+                        }
+                      }}
+                      style={{ userSelect: "none" }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-medium text-slate-500">Due Date</span>
+                        {sortBy === "dueDate" && (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </th>
+                    <th className="px-5 py-3 text-right">
+                      <span className="text-xs font-medium text-slate-500">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map((inv, idx) => (
+                  {paginatedInvoices.map((inv, idx) => (
                     <tr
                       key={inv.id}
                       className="transition-colors"
                       style={{
-                        borderBottom: idx < filteredInvoices.length - 1 ? "1px solid var(--border-col)" : "none",
+                        borderBottom: idx < paginatedInvoices.length - 1 ? "1px solid var(--border-col)" : "none",
                         background: selected.has(inv.id) ? "var(--bg-elevated)" : undefined,
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
@@ -618,9 +860,10 @@ export default function InvoicesPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => generateInvoicePDF(inv)}
+                            onClick={() => handleGeneratePDF(inv)}
                             className="transition-colors"
                             style={{ color: "var(--text-muted)" }}
+                            disabled={isGeneratingPDF}
                             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
                             title="Download PDF"
@@ -654,7 +897,7 @@ export default function InvoicesPage() {
 
             {/* Mobile cards */}
             <div className="sm:hidden divide-y" style={{ borderColor: "var(--border-col)" }}>
-              {filteredInvoices.map((inv) => (
+              {paginatedInvoices.map((inv) => (
                 <div key={inv.id} className="px-4 py-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono text-slate-400">{inv.invoiceNumber}</span>
@@ -673,7 +916,7 @@ export default function InvoicesPage() {
                         Send
                       </button>
                     )}
-                    <button onClick={() => generateInvoicePDF(inv)} className="text-xs flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                    <button onClick={() => handleGeneratePDF(inv)} disabled={isGeneratingPDF} className="text-xs flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
                       <Download className="h-3.5 w-3.5" /> PDF
                     </button>
                     {inv.status !== "paid" && (
@@ -686,9 +929,66 @@ export default function InvoicesPage() {
               ))}
             </div>
 
+            {/* Empty state */}
             {invoices.length === 0 && !isLoading && (
+              <div className="py-16 text-center">
+                <FileText className="h-12 w-12 mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
+                <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>No invoices yet</p>
+                <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Create your first invoice to get started</p>
+                <Button
+                  onClick={() => setCreateOpen(true)}
+                  className="font-semibold"
+                  style={{ background: "#16a34a", color: "#ffffff" }}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  New Invoice
+                </Button>
+              </div>
+            )}
+
+            {/* Filtered empty state */}
+            {invoices.length > 0 && filteredInvoices.length === 0 && !isLoading && (
               <div className="py-12 text-center">
-                <p className="text-sm text-slate-500">No invoices yet. Create your first one.</p>
+                <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>No invoices match your filters</p>
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setStatusFilter("all");
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                  style={{ color: "#3b82f6", background: "#3b82f615", border: "1px solid #3b82f630" }}
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {filteredInvoices.length > ITEMS_PER_PAGE && (
+              <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderColor: "var(--border-col)" }}>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {pageIndex * ITEMS_PER_PAGE + 1}–{Math.min((pageIndex + 1) * ITEMS_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPageIndex(Math.max(0, pageIndex - 1))}
+                    disabled={pageIndex === 0}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPageIndex(pageIndex + 1)}
+                    disabled={(pageIndex + 1) * ITEMS_PER_PAGE >= filteredInvoices.length}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -966,6 +1266,40 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
+              {/* Workflow indicator */}
+              <div className="mb-6 flex items-center gap-2">
+                {["Draft", "Sent", "Paid"].map((step, idx) => (
+                  <div key={step} className="flex items-center">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                      style={{
+                        background:
+                          previewInvoice.status === "draft" ? (idx === 0 ? "#16a34a" : "#e2e8f0") :
+                          previewInvoice.status === "overdue" || previewInvoice.status === "sent" ? (idx <= 1 ? "#16a34a" : "#e2e8f0") :
+                          previewInvoice.status === "paid" ? "#16a34a" : "#e2e8f0",
+                        color: (previewInvoice.status === "draft" && idx === 0) ||
+                               ((previewInvoice.status === "sent" || previewInvoice.status === "overdue") && idx <= 1) ||
+                               (previewInvoice.status === "paid" && idx <= 2) ? "#fff" : "#94a3b8",
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                    {idx < 2 && (
+                      <div
+                        className="w-8 h-0.5 mx-1 transition-colors"
+                        style={{
+                          background:
+                            previewInvoice.status === "draft" ? "#e2e8f0" :
+                            previewInvoice.status === "overdue" || previewInvoice.status === "sent" ? (idx === 0 ? "#16a34a" : "#e2e8f0") :
+                            previewInvoice.status === "paid" ? "#16a34a" : "#e2e8f0",
+                        }}
+                      />
+                    )}
+                    <span className="text-xs font-medium ml-1" style={{ color: "#64748b" }}>{step}</span>
+                  </div>
+                ))}
+              </div>
+
               {/* Line items */}
               <table className="w-full text-sm mb-6">
                 <thead>
@@ -1017,7 +1351,8 @@ export default function InvoicesPage() {
 
               <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-slate-200">
                 <button
-                  onClick={() => { generateInvoicePDF(previewInvoice); }}
+                  onClick={() => { handleGeneratePDF(previewInvoice); }}
+                  disabled={isGeneratingPDF}
                   className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                   style={{ background: "#0f172a", color: "#fff" }}
                 >

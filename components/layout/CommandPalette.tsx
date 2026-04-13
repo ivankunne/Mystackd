@@ -18,23 +18,23 @@ import type { Currency } from "@/lib/mock-data";
 // ── Static nav pages ──────────────────────────────────────────────────────────
 
 const PAGES = [
-  { label: "Dashboard",      href: "/dashboard",    icon: LayoutDashboard, desc: "Overview & income summary" },
-  { label: "Connections",    href: "/connections",  icon: Plug,            desc: "Payment source integrations" },
-  { label: "Leads",          href: "/leads",        icon: TrendingUp,      desc: "Lead pipeline & Kanban" },
-  { label: "Clients",        href: "/clients",      icon: Users,           desc: "Client management" },
-  { label: "Proposals",      href: "/proposals",    icon: FileText,        desc: "Create & send proposals" },
-  { label: "Contracts",      href: "/contracts",    icon: ScrollText,      desc: "Contract management" },
-  { label: "Projects",       href: "/projects",     icon: Layers,          desc: "Project tracking" },
-  { label: "Calendar",       href: "/calendar",     icon: Calendar,        desc: "Schedule & events" },
-  { label: "Time Tracking",  href: "/time",         icon: Timer,           desc: "Log & bill time" },
-  { label: "Invoices",       href: "/invoices",     icon: Receipt,         desc: "Create & manage invoices" },
-  { label: "Reminders",      href: "/reminders",    icon: Bell,            desc: "Payment reminders" },
-  { label: "Expenses",       href: "/expenses",     icon: TrendingDown,    desc: "Track expenses" },
-  { label: "Tax Calendar",   href: "/tax",          icon: Calendar,        desc: "Tax estimates & deadlines" },
-  { label: "Intelligence",   href: "/intelligence", icon: BrainCircuit,    desc: "Financial insights" },
-  { label: "Client Portals", href: "/portal",       icon: Globe,           desc: "Shared client portals" },
-  { label: "Settings",       href: "/settings",     icon: Settings,        desc: "Account & preferences" },
-  { label: "Upgrade",        href: "/upgrade",      icon: Zap,             desc: "Upgrade to Pro" },
+  { label: "Dashboard",      href: "/dashboard",    icon: LayoutDashboard, desc: "Overview & income summary",       shortcut: "G D" },
+  { label: "Connections",    href: "/connections",  icon: Plug,            desc: "Payment source integrations",     shortcut: "G N" },
+  { label: "Leads",          href: "/leads",        icon: TrendingUp,      desc: "Lead pipeline & Kanban",         shortcut: "G L" },
+  { label: "Clients",        href: "/clients",      icon: Users,           desc: "Client management",              shortcut: "G C" },
+  { label: "Proposals",      href: "/proposals",    icon: FileText,        desc: "Create & send proposals",        shortcut: "G P" },
+  { label: "Contracts",      href: "/contracts",    icon: ScrollText,      desc: "Contract management",            shortcut: "G T" },
+  { label: "Projects",       href: "/projects",     icon: Layers,          desc: "Project tracking",               shortcut: "G J" },
+  { label: "Calendar",       href: "/calendar",     icon: Calendar,        desc: "Schedule & events",              shortcut: "G A" },
+  { label: "Time Tracking",  href: "/time",         icon: Timer,           desc: "Log & bill time",                shortcut: "G E" },
+  { label: "Invoices",       href: "/invoices",     icon: Receipt,         desc: "Create & manage invoices",       shortcut: "G I" },
+  { label: "Reminders",      href: "/reminders",    icon: Bell,            desc: "Payment reminders",              shortcut: "G R" },
+  { label: "Expenses",       href: "/expenses",     icon: TrendingDown,    desc: "Track expenses",                 shortcut: "G X" },
+  { label: "Tax Calendar",   href: "/tax",          icon: Calendar,        desc: "Tax estimates & deadlines",      shortcut: "G T" },
+  { label: "Intelligence",   href: "/intelligence", icon: BrainCircuit,    desc: "Financial insights",             shortcut: "G V" },
+  { label: "Client Portals", href: "/portal",       icon: Globe,           desc: "Shared client portals",          shortcut: "G O" },
+  { label: "Settings",       href: "/settings",     icon: Settings,        desc: "Account & preferences",          shortcut: "G S" },
+  { label: "Upgrade",        href: "/upgrade",      icon: Zap,             desc: "Upgrade to Pro",                 shortcut: "G U" },
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ interface Result {
   icon: React.ElementType;
   group: string;
   accent?: string;
+  shortcut?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -114,6 +115,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         href:     p.href,
         icon:     p.icon,
         group:    "Navigate to",
+        shortcut: p.shortcut,
       }));
     }
 
@@ -122,7 +124,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     // Pages
     PAGES.forEach((p) => {
       if (p.label.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) {
-        out.push({ id: `page-${p.href}`, label: p.label, sublabel: p.desc, href: p.href, icon: p.icon, group: "Pages" });
+        out.push({ id: `page-${p.href}`, label: p.label, sublabel: p.desc, href: p.href, icon: p.icon, group: "Pages", shortcut: p.shortcut });
       }
     });
 
@@ -296,6 +298,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         </p>
                       )}
                     </div>
+                    {item.shortcut && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--bg-page)", color: "var(--text-muted)" }}>
+                        {item.shortcut}
+                      </span>
+                    )}
                     <ChevronRight
                       className="h-3.5 w-3.5 flex-shrink-0 transition-opacity"
                       style={{ color: "var(--text-muted)", opacity: isActive ? 1 : 0 }}
