@@ -94,6 +94,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Determine billing period from price ID
+    const monthlyPriceId = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID;
+    const annualPriceId = process.env.NEXT_PUBLIC_STRIPE_ANNUAL_PRICE_ID;
+    const billingPeriod = priceId === monthlyPriceId ? "monthly" : priceId === annualPriceId ? "annual" : "monthly";
+
     // Create checkout session
     try {
       const session = await stripe.checkout.sessions.create({
