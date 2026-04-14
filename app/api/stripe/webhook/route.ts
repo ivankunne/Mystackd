@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export const dynamic = "force-dynamic";
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: ReturnType<typeof createClient>) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: SupabaseClient) {
   const userId = session.metadata?.userId;
   if (!userId) return;
 
@@ -22,11 +22,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
       is_pro: true,
       stripe_subscription_id: subscription.id,
       stripe_customer_id: session.customer as string,
-    } as any)
+    })
     .eq("id", userId);
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: ReturnType<typeof createClient>) {
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: SupabaseClient) {
   const userId = subscription.metadata?.userId;
   if (!userId) return;
 
@@ -43,12 +43,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
       .update({
         is_pro: false,
         stripe_subscription_id: null,
-      } as any)
+      })
       .eq("id", profile.id);
   }
 }
 
-async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: ReturnType<typeof createClient>) {
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: SupabaseClient) {
   // Find user by customer ID
   const { data: profile } = await supabase
     .from("profiles")
@@ -59,7 +59,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: Ret
   if (profile) {
     await supabase
       .from("profiles")
-      .update({ is_pro: false } as any)
+      .update({ is_pro: false })
       .eq("id", profile.id);
   }
 }
