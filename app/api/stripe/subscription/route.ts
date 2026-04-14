@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import type { Subscription } from "@/lib/data/billing";
+import type { UserSubscription } from "@/lib/data/billing";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
         pricePerMonth: 0,
-      } as Subscription);
+      } as UserSubscription);
     }
 
     try {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         pricePerMonth: subscription.items.data[0]?.price?.unit_amount
           ? subscription.items.data[0].price.unit_amount / 100
           : 9,
-      } as Subscription);
+      } as UserSubscription);
     } catch (stripeError) {
       console.error("Failed to fetch Stripe subscription:", stripeError);
       // If Stripe fetch fails, return basic Pro info
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
         pricePerMonth: 9,
-      } as Subscription);
+      } as UserSubscription);
     }
   } catch (error) {
     console.error("Subscription fetch error:", error);

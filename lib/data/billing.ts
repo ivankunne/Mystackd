@@ -1,6 +1,6 @@
 import { createClient } from "../supabase/client";
 
-export interface Subscription {
+export interface UserSubscription {
   planId:             "free" | "pro";
   status:             "active" | "canceled" | "past_due" | "trialing";
   currentPeriodEnd:   string | null;
@@ -8,7 +8,7 @@ export interface Subscription {
   pricePerMonth:      number;
 }
 
-const FREE_PLAN: Subscription = {
+const FREE_PLAN: UserSubscription = {
   planId:            "free",
   status:            "active",
   currentPeriodEnd:  null,
@@ -16,7 +16,7 @@ const FREE_PLAN: Subscription = {
   pricePerMonth:     0,
 };
 
-export async function getSubscription(userId?: string): Promise<Subscription> {
+export async function getSubscription(userId?: string): Promise<UserSubscription> {
   const supabase = createClient();
   const { data } = await supabase.auth.getSession();
   if (!data.session?.user) return { ...FREE_PLAN };
@@ -39,7 +39,7 @@ export async function getSubscription(userId?: string): Promise<Subscription> {
     });
 
     if (response.ok) {
-      const data = await response.json() as Subscription;
+      const data = await response.json() as UserSubscription;
       return data;
     }
   } catch (error) {
