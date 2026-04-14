@@ -64,12 +64,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch subscription and customer details from Stripe
-    const [subscription, customer] = await Promise.all([
-      stripe.subscriptions.retrieve(profile.stripe_subscription_id) as Promise<Stripe.Subscription>,
+    const results = await Promise.all([
+      stripe.subscriptions.retrieve(profile.stripe_subscription_id),
       profile.stripe_customer_id
         ? stripe.customers.retrieve(profile.stripe_customer_id)
         : null,
     ]);
+    const subscription = results[0] as Stripe.Subscription;
+    const customer = results[1];
 
     // Determine plan type (monthly or annual)
     const planItem = subscription.items.data[0];
