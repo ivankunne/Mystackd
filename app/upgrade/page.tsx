@@ -110,7 +110,7 @@ export default function UpgradePage() {
     setIsUpgrading(true);
     try {
       const priceId = billingPeriod === "monthly" ? MONTHLY_PRICE_ID : ANNUAL_PRICE_ID;
-      const { url } = await createCheckoutSession(user?.id, user?.email, priceId);
+      const { url } = await createCheckoutSession(user!.id, user!.email, priceId);
       if (url && url !== "#") {
         window.location.href = url;
       } else {

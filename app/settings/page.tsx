@@ -343,23 +343,23 @@ export default function SettingsPage() {
     setExporting(true);
     try {
       const [invoices, income, expenses, timeEntries, clients, projects, proposals, contracts, leads, reminders] = await Promise.all([
-        getInvoices(user?.id),
-        getIncomeEntries(user?.id),
-        getExpenses(user?.id),
-        getTimeEntries(user?.id),
-        getClients(user?.id),
-        getProjects(user?.id),
+        getInvoices(user!.id),
+        getIncomeEntries(user!.id),
+        getExpenses(user!.id),
+        getTimeEntries(user!.id),
+        getClients(user!.id),
+        getProjects(user!.id),
         getProposals(),
         getContracts(),
-        getLeads(user?.id),
-        getReminderLogs(user?.id),
+        getLeads(user!.id),
+        getReminderLogs(user!.id),
       ]);
       const exportData = {
         exportedAt: new Date().toISOString(),
-        exportedBy: user?.email,
+        exportedBy: user!.email,
         schemaVersion: "1.0",
         profile: {
-          id: user?.id, name: user?.name, email: user?.email,
+          id: user!.id, name: user!.name, email: user!.email,
           country: user?.country, currency: user?.currency,
           monthlyExpenses: user?.monthlyExpenses, incomeGoal: user?.incomeGoal,
         },
@@ -387,7 +387,7 @@ export default function SettingsPage() {
   const onSaveProfile = async (v: ProfileValues) => {
     setProfileSaving(true);
     try {
-      const updated = await updateUserProfile(v, user?.id);
+      const updated = await updateUserProfile(v, user!.id);
       updateUser(updated);
       setProfileSaved(true); setTimeout(() => setProfileSaved(false), 3000);
     } finally { setProfileSaving(false); }
@@ -398,7 +398,7 @@ export default function SettingsPage() {
     try {
       const updated = await updateUserProfile(
         { country: v.country, currency: v.currency as "EUR", publicPageSlug: v.publicSlug, language: v.language },
-        user?.id,
+        user!.id,
       );
       updateUser(updated);
       setAccountSaved(true); setTimeout(() => setAccountSaved(false), 3000);
@@ -408,7 +408,7 @@ export default function SettingsPage() {
   const onSavePassword = async (v: PasswordValues) => {
     setPwSaving(true);
     try {
-      await changePassword(v.current, v.next, user?.email ?? "");
+      await changePassword(v.current, v.next, user!.email);
       setPwSaved(true);
       setTimeout(() => setPwSaved(false), 3000);
       pwForm.reset();
@@ -426,7 +426,7 @@ export default function SettingsPage() {
     try {
       const updated = await updateUserProfile(
         { monthlyExpenses: { rent: v.rent, subscriptions: v.subscriptions, other: v.food + v.transport + v.insurance + v.other } },
-        user?.id,
+        user!.id,
       );
       updateUser(updated);
       setExpSaved(true); setTimeout(() => setExpSaved(false), 3000);
@@ -438,7 +438,7 @@ export default function SettingsPage() {
     if (isNaN(goal) || goal <= 0) return;
     setGoalSaving(true);
     try {
-      const updated = await updateIncomeGoal(goal, user?.id);
+      const updated = await updateIncomeGoal(goal, user!.id);
       updateUser(updated); setGoalSaved(true); setTimeout(() => setGoalSaved(false), 3000);
     } finally { setGoalSaving(false); }
   };
@@ -472,7 +472,7 @@ export default function SettingsPage() {
     setSharingSaving(true);
     try {
       const updated = await updatePublicPageSettings(
-        { publicPageEnabled: publicEnabled, publicPageSlug: publicSlug }, user?.id,
+        { publicPageEnabled: publicEnabled, publicPageSlug: publicSlug }, user!.id,
       );
       updateUser(updated); setSharingSaved(true); setTimeout(() => setSharingSaved(false), 3000);
     } finally { setSharingSaving(false); }
@@ -487,7 +487,7 @@ export default function SettingsPage() {
     if (!webhookUrl || webhookEvents.length === 0) return;
     const next = [...webhooks, { id: `wh_${Date.now()}`, url: webhookUrl, events: [...webhookEvents], isActive: true, createdAt: new Date().toISOString() }];
     setWebhooks(next);
-    await updateWebhooks(next, user?.id);
+    await updateWebhooks(next, user!.id);
     setWebhookUrl(""); setWebhookEvents([]); setShowWebhookForm(false);
   };
 
@@ -917,7 +917,7 @@ export default function SettingsPage() {
                       className="hover:opacity-80 flex items-center gap-1.5"
                       onClick={async () => {
                         try {
-                          await createBillingPortalSession(user?.id);
+                          await createBillingPortalSession(user!.id);
                         } catch {
                           toast("Failed to open billing portal", "error");
                         }
@@ -927,7 +927,7 @@ export default function SettingsPage() {
                     </Button>
                     <button
                       onClick={async () => {
-                        await cancelSubscription(user?.id);
+                        await cancelSubscription(user!.id);
                         updateUser({ isPro: false });
                         toast("Subscription cancelled — you've been moved to Free", "info");
                       }}
@@ -962,7 +962,7 @@ export default function SettingsPage() {
                             {wh.events.map((e) => <Badge key={e} className="text-xs" style={{ background: "var(--border-col)", color: "#94a3b8", border: "none" }}>{e}</Badge>)}
                           </div>
                         </div>
-                        <button onClick={() => { const next = webhooks.filter((w) => w.id !== wh.id); setWebhooks(next); updateWebhooks(next, user?.id); }} className="ml-3 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0">
+                        <button onClick={() => { const next = webhooks.filter((w) => w.id !== wh.id); setWebhooks(next); updateWebhooks(next, user!.id); }} className="ml-3 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -1005,7 +1005,7 @@ export default function SettingsPage() {
                 <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border-col)", background: "var(--bg-card)" }}>
                   <SettingRow label="Export income CSV" description="All income entries as a spreadsheet.">
                     <Button size="sm" variant="outline" className="hover:opacity-80" onClick={async () => {
-                      const entries = await getIncomeEntries(user?.id);
+                      const entries = await getIncomeEntries(user!.id);
                       exportIncomeCSV(entries);
                     }}>
                       <Download className="h-3.5 w-3.5 mr-1.5" /> Export
@@ -1013,7 +1013,7 @@ export default function SettingsPage() {
                   </SettingRow>
                   <SettingRow label="Export expenses CSV" description="All expense records as a spreadsheet.">
                     <Button size="sm" variant="outline" className="hover:opacity-80" onClick={async () => {
-                      const expenses = await getExpenses(user?.id);
+                      const expenses = await getExpenses(user!.id);
                       exportExpensesCSV(expenses);
                     }}>
                       <Download className="h-3.5 w-3.5 mr-1.5" /> Export
@@ -1021,7 +1021,7 @@ export default function SettingsPage() {
                   </SettingRow>
                   <SettingRow label="Export invoices CSV" description="All invoices with amounts and status.">
                     <Button size="sm" variant="outline" className="hover:opacity-80" onClick={async () => {
-                      const invoices = await getInvoices(user?.id);
+                      const invoices = await getInvoices(user!.id);
                       exportInvoicesCSV(invoices);
                     }}>
                       <Download className="h-3.5 w-3.5 mr-1.5" /> Export
@@ -1029,7 +1029,7 @@ export default function SettingsPage() {
                   </SettingRow>
                   <SettingRow label="Export time entries CSV" description="All tracked hours with rates and values.">
                     <Button size="sm" variant="outline" className="hover:opacity-80" onClick={async () => {
-                      const entries = await getTimeEntries(user?.id);
+                      const entries = await getTimeEntries(user!.id);
                       exportTimeEntriesCSV(entries);
                     }}>
                       <Download className="h-3.5 w-3.5 mr-1.5" /> Export
