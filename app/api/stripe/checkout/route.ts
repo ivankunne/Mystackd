@@ -33,8 +33,11 @@ export async function POST(req: NextRequest) {
   try {
     const { userId, userEmail, priceId } = await req.json();
 
+    console.log("Checkout request received:", { userId, userEmail, priceId });
+
     // Validate required fields
     if (!userId || !userEmail || !priceId) {
+      console.error("Missing required fields:", { userId, userEmail, priceId });
       return NextResponse.json(
         { error: "Missing required fields: userId, userEmail, priceId" },
         { status: 400 }
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
 
     // Validate email format
     if (!validateEmail(userEmail)) {
+      console.error("Invalid email format:", userEmail);
       return NextResponse.json(
         { error: "Invalid email format" },
         { status: 400 }
