@@ -84,10 +84,11 @@ export async function POST(req: NextRequest) {
     let paymentMethodLast4: string | null = null;
     let paymentMethodBrand: string | null = null;
 
-    if (customer && typeof customer !== 'boolean' && customer.invoice_settings?.custom_fields) {
+    // Try to get payment method from old-style source
+    if (customer && customer.deleted !== true && subscription.default_source && typeof subscription.default_source === 'string') {
       const pm = await stripe.customers.retrieveSource(
         profile.stripe_customer_id!,
-        subscription.default_source as string
+        subscription.default_source
       ).catch(() => null);
 
       if (pm && typeof pm === 'object' && 'last4' in pm) {
