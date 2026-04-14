@@ -93,15 +93,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Create a mutable response so Supabase SSR can refresh the session cookie
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  try {
+    // Create a mutable response so Supabase SSR can refresh the session cookie
+    let response = NextResponse.next({
+      request: { headers: request.headers },
+    });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -118,22 +123,24 @@ export async function middleware(request: NextRequest) {
           );
         },
       },
-    },
-  );
+    });
 
-  // getUser() is safer than getSession() — it validates the token with Supabase Auth server
-  const { data: { user } } = await supabase.auth.getUser();
+    // getUser() is safer than getSession() — it validates the token with Supabase Auth server
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    const loginUrl = new URL("/login", request.url);
-    // Preserve the intended destination so we can redirect back after login
-    if (pathname !== "/dashboard") {
-      loginUrl.searchParams.set("redirect", pathname);
+    if (!user) {
+      const loginUrl = new URL("/login", request.url);
+      // Preserve the intended destination so we can redirect back after login
+      if (pathname !== "/dashboard") {
+        loginUrl.searchParams.set("redirect", pathname);
+      }
+      return NextResponse.redirect(loginUrl);
     }
-    return NextResponse.redirect(loginUrl);
-  }
 
-  return response;
+    return response;
+  } catch (error) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 }
 
 export const config = {
