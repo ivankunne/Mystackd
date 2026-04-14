@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-// Initialize Stripe client with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 export const dynamic = "force-dynamic";
 
 export interface SubscriptionDetails {
@@ -19,32 +17,21 @@ export interface SubscriptionDetails {
 
 export async function POST(req: NextRequest) {
   const { createClient } = await import("@supabase/supabase-js");
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false },
-  });
+  const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
   try {
     const { userId } = await req.json();
-
     if (!userId) {
-      return NextResponse.json(
-        { error: "Missing userId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    // Get subscription ID from profiles
     const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_subscription_id, stripe_customer_id")
@@ -61,71 +48,60 @@ export async function POST(req: NextRequest) {
         cancelDate: null,
         paymentMethodLast4: null,
         paymentMethodBrand: null,
-      } as SubscriptionDetails);
+      });
     }
 
-    // Fetch subscription from Stripe (stripe SDK handles types internally)
-    const subscription = await stripe.subscriptions.retrieve(
-      profile.stripe_subscription_id
-    ) as any;
+    // Fetch raw objects from Stripe
+    const subData = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+    const custData = profile.stripe_customer_id ? await stripe.customers.retrieve(profile.stripe_customer_id) : null;
 
-    // Fetch customer from Stripe if we have a customer ID
-    let customer = null as any;
-    if (profile.stripe_customer_id) {
-      customer = await stripe.customers.retrieve(profile.stripe_customer_id);
-    }
+    // Manually extract data to avoid type issues
+    const planItem = (subData as any).items?.data?.[0];
+    const planType = planItem?.price?.recurring?.interval === "year" ? "annual" : planItem?.price?.recurring?.interval === "month" ? "monthly" : null;
+    const currentPrice = planItem?.price?.unit_amount ? planItem.price.unit_amount / 100 : null;
+    const renewalDate = (subData as any).current_period_end ? new Date((subData as any).current_period_end * 1000).toISOString() : null;
+    const status = (subData as any).status;
+    const cancelAtPeriodEnd = (subData as any).cancel_at_period_end || false;
+    const cancelDate = (subData as any).canceled_at ? new Date((subData as any).canceled_at * 1000).toISOString() : null;
 
-    // Determine plan type (monthly or annual)
-    const planItem = subscription.items.data[0];
-    let planType: "monthly" | "annual" | null = null;
-    if (planItem?.price?.recurring?.interval === "month") {
-      planType = "monthly";
-    } else if (planItem?.price?.recurring?.interval === "year") {
-      planType = "annual";
-    }
-
-    // Get payment method info
     let paymentMethodLast4: string | null = null;
     let paymentMethodBrand: string | null = null;
 
-    // Try to get payment method from old-style source
-    if (customer && customer.deleted !== true && subscription.default_source && typeof subscription.default_source === 'string') {
-      const pm = await stripe.customers.retrieveSource(
-        profile.stripe_customer_id!,
-        subscription.default_source
-      ).catch(() => null);
-
-      if (pm && typeof pm === 'object' && 'last4' in pm) {
-        paymentMethodLast4 = pm.last4 as string;
-        // brand exists only on Card, not on BankAccount
-        if ('brand' in pm) {
-          paymentMethodBrand = (pm.brand as string) || null;
-        }
-      }
-    }
-
-    // Try to get payment method from payment method ID
-    if (subscription.default_payment_method && typeof subscription.default_payment_method === 'string') {
+    // Try new-style payment method
+    if ((subData as any).default_payment_method && typeof (subData as any).default_payment_method === "string") {
       try {
-        const pm = await stripe.paymentMethods.retrieve(subscription.default_payment_method);
-        if (pm.card) {
-          paymentMethodLast4 = pm.card.last4;
-          paymentMethodBrand = pm.card.brand;
+        const pm = await stripe.paymentMethods.retrieve((subData as any).default_payment_method);
+        if ((pm as any).card) {
+          paymentMethodLast4 = (pm as any).card.last4;
+          paymentMethodBrand = (pm as any).card.brand;
         }
       } catch (error) {
         console.error("Failed to fetch payment method:", error);
       }
     }
 
+    // Try old-style source as fallback
+    if (!paymentMethodLast4 && custData && (custData as any).deleted !== true && (subData as any).default_source && typeof (subData as any).default_source === "string") {
+      try {
+        const pm = await stripe.customers.retrieveSource(profile.stripe_customer_id!, (subData as any).default_source);
+        if ((pm as any).last4) {
+          paymentMethodLast4 = (pm as any).last4;
+          if ((pm as any).brand) {
+            paymentMethodBrand = (pm as any).brand;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch source:", error);
+      }
+    }
+
     const details: SubscriptionDetails = {
       planType,
-      renewalDate: new Date(subscription.current_period_end * 1000).toISOString(),
-      currentPrice: planItem?.price?.unit_amount ? planItem.price.unit_amount / 100 : null,
-      status: subscription.status,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      cancelDate: subscription.canceled_at
-        ? new Date(subscription.canceled_at * 1000).toISOString()
-        : null,
+      renewalDate,
+      currentPrice,
+      status,
+      cancelAtPeriodEnd,
+      cancelDate,
       paymentMethodLast4,
       paymentMethodBrand,
     };
@@ -133,9 +109,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(details);
   } catch (error) {
     console.error("Failed to fetch subscription details:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch subscription details" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch subscription details" }, { status: 500 });
   }
 }
