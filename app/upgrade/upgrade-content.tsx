@@ -116,8 +116,17 @@ export default function UpgradePageContent() {
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
+      if (!user?.id || !user?.email) {
+        setErrorMessage("User information incomplete");
+        setErrorSuggestion("Please log out and log back in.");
+        setErrorOpen(true);
+        setIsUpgrading(false);
+        return;
+      }
+
       const priceId = billingPeriod === "monthly" ? MONTHLY_PRICE_ID : ANNUAL_PRICE_ID;
-      const { url } = await createCheckoutSession(user!.id, user!.email, priceId);
+      console.log("Creating checkout session with:", { userId: user.id, email: user.email, priceId });
+      const { url } = await createCheckoutSession(user.id, user.email, priceId);
       if (url && url !== "#") {
         window.location.href = url;
       } else {
