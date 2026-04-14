@@ -41,7 +41,7 @@ import { getContracts } from "@/lib/data/contracts";
 import { getLeads } from "@/lib/data/leads";
 import { getReminderLogs } from "@/lib/data/reminders";
 import {
-  getSubscription, cancelSubscription, type Subscription,
+  getSubscription, cancelSubscription, createBillingPortalSession, type Subscription,
 } from "@/lib/data/billing";
 import { changePassword, deleteUserRecord, login } from "@/lib/auth";
 import { getPaymentInfo, savePaymentInfo, type PaymentInfo } from "@/lib/data/payment-info";
