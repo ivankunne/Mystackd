@@ -95,6 +95,9 @@ export default function DashboardPage() {
         setProposals(props);
         setIsLoading(false);
       }
+    }).catch((error) => {
+      console.error("Failed to load dashboard data:", error);
+      if (mounted) setIsLoading(false);
     });
     return () => {
       mounted = false;

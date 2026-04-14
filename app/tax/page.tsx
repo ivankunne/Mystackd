@@ -42,6 +42,9 @@ export default function TaxPage() {
       getExpenses(user.id),
     ]).then(([inc, exp]) => {
       if (mounted) { setEntries(inc); setExpenses(exp); setIsLoading(false); }
+    }).catch((error) => {
+      console.error("Failed to load tax data:", error);
+      if (mounted) setIsLoading(false);
     });
     return () => { mounted = false; };
   }, [user?.id]);

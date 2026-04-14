@@ -99,6 +99,9 @@ export default function ClientsPage() {
         setPortals(portalMap);
         setIsLoading(false);
       }
+    }).catch((error) => {
+      console.error("Failed to load clients data:", error);
+      if (mounted) setIsLoading(false);
     });
     return () => { mounted = false; };
   }, [user?.id]);

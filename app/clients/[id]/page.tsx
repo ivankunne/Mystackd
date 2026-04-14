@@ -226,45 +226,50 @@ export default function ClientDetailPage() {
 
   const loadData = useCallback(async () => {
     if (!user?.id) return;
-    const [clients, invs, ents, portalData, upds, fls, fb, props, cons, projs] = await Promise.all([
-      getClients(user.id),
-      getInvoices(user.id),
-      getIncomeEntries(user.id),
-      getPortal(clientId),
-      getProjectUpdates(clientId),
-      getSharedFiles(clientId),
-      getFeedback(clientId),
-      getProposalsForClient(clientId),
-      getContractsForClient(clientId),
-      getProjectsForClient(clientId),
-    ]);
-    const c = clients.find((cl) => cl.id === clientId);
-    if (!c) { router.push("/clients"); return; }
-    setClient(c);
-    // Prefer clientId FK match; fall back to name string for legacy rows
-    setInvoices(invs.filter((inv) => inv.clientId ? inv.clientId === clientId : inv.clientName === c.name));
-    setEntries(ents.filter((e) => e.clientId ? e.clientId === clientId : e.clientName === c.name));
+    try {
+      const [clients, invs, ents, portalData, upds, fls, fb, props, cons, projs] = await Promise.all([
+        getClients(user.id),
+        getInvoices(user.id),
+        getIncomeEntries(user.id),
+        getPortal(clientId),
+        getProjectUpdates(clientId),
+        getSharedFiles(clientId),
+        getFeedback(clientId),
+        getProposalsForClient(clientId),
+        getContractsForClient(clientId),
+        getProjectsForClient(clientId),
+      ]);
+      const c = clients.find((cl) => cl.id === clientId);
+      if (!c) { router.push("/clients"); return; }
+      setClient(c);
+      // Prefer clientId FK match; fall back to name string for legacy rows
+      setInvoices(invs.filter((inv) => inv.clientId ? inv.clientId === clientId : inv.clientName === c.name));
+      setEntries(ents.filter((e) => e.clientId ? e.clientId === clientId : e.clientName === c.name));
 
-    // Build default portal if none exists
-    const defaultPortal: ClientPortal = {
-      clientId,
-      token: `ptk_${clientId.replace("client_", "")}${Date.now().toString(36)}`,
-      isEnabled: false,
-      freelancerName: user?.name ?? "Freelancer",
-      headerNote: "",
-      allowFeedback: true,
-      showInvoices: true,
-      showFiles: true,
-      showUpdates: true,
-    };
-    setPortal(portalData ?? defaultPortal);
-    setUpdates(upds);
-    setFiles(fls);
-    setFeedback(fb);
-    setProposals(props);
-    setContracts(cons);
-    setProjects(projs);
-    setIsLoading(false);
+      // Build default portal if none exists
+      const defaultPortal: ClientPortal = {
+        clientId,
+        token: `ptk_${clientId.replace("client_", "")}${Date.now().toString(36)}`,
+        isEnabled: false,
+        freelancerName: user?.name ?? "Freelancer",
+        headerNote: "",
+        allowFeedback: true,
+        showInvoices: true,
+        showFiles: true,
+        showUpdates: true,
+      };
+      setPortal(portalData ?? defaultPortal);
+      setUpdates(upds);
+      setFiles(fls);
+      setFeedback(fb);
+      setProposals(props);
+      setContracts(cons);
+      setProjects(projs);
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Failed to load client data:", error);
+      setIsLoading(false);
+    }
   }, [clientId, user, router]);
 
   useEffect(() => { loadData(); }, [loadData]);

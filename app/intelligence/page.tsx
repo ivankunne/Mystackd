@@ -107,6 +107,9 @@ export default function IntelligencePage() {
       setExpenses(exp);
       setTimeEntries(time);
       setLoading(false);
+    }).catch((error) => {
+      console.error("Failed to load intelligence data:", error);
+      setLoading(false);
     });
   }, [user?.id]);
 
