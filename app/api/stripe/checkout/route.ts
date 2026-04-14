@@ -31,7 +31,18 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const { userId, userEmail, priceId } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error("Failed to parse JSON body:", parseError);
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
+
+    const { userId, userEmail, priceId } = body;
 
     console.log("Checkout request received:", { userId, userEmail, priceId });
 

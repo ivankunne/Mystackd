@@ -117,6 +117,7 @@ export default function UpgradePageContent() {
     setIsUpgrading(true);
     try {
       if (!user?.id || !user?.email) {
+        console.error("User info missing:", { userId: user?.id, email: user?.email });
         setErrorMessage("User information incomplete");
         setErrorSuggestion("Please log out and log back in.");
         setErrorOpen(true);
@@ -125,7 +126,9 @@ export default function UpgradePageContent() {
       }
 
       const priceId = billingPeriod === "monthly" ? MONTHLY_PRICE_ID : ANNUAL_PRICE_ID;
-      console.log("Creating checkout session with:", { userId: user.id, email: user.email, priceId });
+      console.log("Creating checkout session with userId:", user.id);
+      console.log("Creating checkout session with email:", user.email);
+      console.log("Creating checkout session with priceId:", priceId);
       const { url } = await createCheckoutSession(user.id, user.email, priceId);
       if (url && url !== "#") {
         window.location.href = url;
