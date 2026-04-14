@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import type { Subscription as StripeSubscription, Customer as StripeCustomer, DeletedCustomer as StripeDeletedCustomer } from "stripe";
 
 // Initialize Stripe client with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -65,12 +66,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch subscription from Stripe
-    const subscription: Stripe.Subscription = await stripe.subscriptions.retrieve(
+    const subscription: StripeSubscription = await stripe.subscriptions.retrieve(
       profile.stripe_subscription_id
     );
 
     // Fetch customer from Stripe if we have a customer ID
-    let customer: Stripe.Customer | Stripe.DeletedCustomer | null = null;
+    let customer: StripeCustomer | StripeDeletedCustomer | null = null;
     if (profile.stripe_customer_id) {
       customer = await stripe.customers.retrieve(profile.stripe_customer_id);
     }
