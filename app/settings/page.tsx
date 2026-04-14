@@ -915,12 +915,15 @@ export default function SettingsPage() {
                       size="sm"
                       variant="outline"
                       className="hover:opacity-80 flex items-center gap-1.5"
-                      onClick={() => {
-                        toast("Redirecting to billing portal…", "info");
-                        window.open("https://billing.stripe.com/p/login/test_placeholder", "_blank");
+                      onClick={async () => {
+                        try {
+                          await createBillingPortalSession(user?.id);
+                        } catch {
+                          toast("Failed to open billing portal", "error");
+                        }
                       }}
                     >
-                      <CreditCard className="h-4 w-4" /> Manage payment method <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                      <CreditCard className="h-4 w-4" /> Manage billing <ChevronRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
                     <button
                       onClick={async () => {

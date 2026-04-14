@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, X, Minus, CreditCard, Sparkles, Zap, Shield, ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { createCheckoutSession } from "@/lib/data/billing";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
+
+// Stripe price IDs
+const MONTHLY_PRICE_ID = "price_1TLqW2RWd7nhzzDtyPXaZTdn";
+const ANNUAL_PRICE_ID = "price_1TLqW2RWd7nhzzDt2hPg0Ide";
 
 // ── Comparison data ───────────────────────────────────────────────────────────
 
@@ -81,18 +85,32 @@ export default function UpgradePage() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+  const [successShown, setSuccessShown] = useState(false);
   const isPro = user?.isPro ?? false;
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
   }, [user, authLoading, router]);
 
+  useEffect(() => {
+    // Show success banner if coming from Stripe checkout
+    if (searchParams.get("success") === "true" && !successShown) {
+      toast("🎉 You're now on Pro! Enjoy all premium features.", "success");
+      setSuccessShown(true);
+      // Clean up URL
+      router.replace("/upgrade");
+    }
+  }, [searchParams, successShown, toast, router]);
+
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
-      const { url } = await createCheckoutSession(user?.id, user?.email);
+      const priceId = billingPeriod === "monthly" ? MONTHLY_PRICE_ID : ANNUAL_PRICE_ID;
+      const { url } = await createCheckoutSession(user?.id, user?.email, priceId);
       if (url && url !== "#") {
         window.location.href = url;
       } else {
@@ -147,6 +165,43 @@ export default function UpgradePage() {
           </p>
         </div>
 
+        {/* Billing period toggle */}
+        <div className="flex justify-center mb-2">
+          <div
+            className="inline-flex rounded-lg p-1"
+            style={{ background: "var(--bg-page)", border: "1px solid var(--border-col)" }}
+          >
+            <button
+              onClick={() => setBillingPeriod("monthly")}
+              className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              style={{
+                color: billingPeriod === "monthly" ? "#0f172a" : "var(--text-secondary)",
+                background: billingPeriod === "monthly" ? "#22C55E" : "transparent",
+              }}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingPeriod("annual")}
+              className="px-4 py-2 rounded-md text-sm font-medium transition-colors relative"
+              style={{
+                color: billingPeriod === "annual" ? "#0f172a" : "var(--text-secondary)",
+                background: billingPeriod === "annual" ? "#22C55E" : "transparent",
+              }}
+            >
+              Annual
+              {billingPeriod === "annual" && (
+                <span
+                  className="absolute -top-6 -right-4 text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+                  style={{ background: "#22C55E", color: "#0f172a" }}
+                >
+                  Save €29
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Plan header cards */}
         <div className="grid grid-cols-2 gap-4">
 
@@ -191,8 +246,12 @@ export default function UpgradePage() {
                   Pro
                 </p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold" style={{ color: "#ffffff" }}>€9</span>
-                  <span className="text-sm" style={{ color: "#94a3b8" }}>/ mo</span>
+                  <span className="text-3xl font-bold" style={{ color: "#ffffff" }}>
+                    {billingPeriod === "monthly" ? "€9" : "€79"}
+                  </span>
+                  <span className="text-sm" style={{ color: "#94a3b8" }}>
+                    {billingPeriod === "monthly" ? "/ mo" : "/ year"}
+                  </span>
                 </div>
                 <p className="text-xs mt-1" style={{ color: "#6b7280" }}>Cancel anytime</p>
               </div>
@@ -299,7 +358,7 @@ export default function UpgradePage() {
             style={{ background: "#22C55E", color: "#0f172a" }}
           >
             <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-            Upgrade to Pro — €9/mo
+            Upgrade to Pro — {billingPeriod === "monthly" ? "€9/mo" : "€79/yr"}
           </Button>
         </div>
 
@@ -329,20 +388,24 @@ export default function UpgradePage() {
               style={{ background: "var(--bg-page)", border: "1px solid var(--border-col)" }}
             >
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">MyStackd Pro</span>
-                <span className="text-white font-semibold">€9.00 / mo</span>
+                <span className="text-slate-400">MyStackd Pro {billingPeriod === "annual" ? "(Annual)" : ""}</span>
+                <span className="text-white font-semibold">
+                  {billingPeriod === "monthly" ? "€9.00 / mo" : "€79.00 / year"}
+                </span>
               </div>
               <div
                 className="flex justify-between text-sm font-semibold pt-2 border-t"
                 style={{ borderColor: "var(--border-col)" }}
               >
                 <span className="text-white">Due today</span>
-                <span style={{ color: "#22C55E" }}>€9.00</span>
+                <span style={{ color: "#22C55E" }}>
+                  {billingPeriod === "monthly" ? "€9.00" : "€79.00"}
+                </span>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 text-center leading-relaxed">
-              Stripe is coming soon. Clicking confirm activates Pro immediately so you can explore all features.
+              You'll be taken to Stripe to complete your payment. Your subscription will activate immediately after payment.
             </p>
 
             <div className="flex gap-2">
@@ -359,7 +422,7 @@ export default function UpgradePage() {
                 className="flex-1 font-bold"
                 style={{ background: "#22C55E", color: "#0f172a" }}
               >
-                {isUpgrading ? "Activating…" : "Confirm & activate"}
+                {isUpgrading ? "Processing…" : "Go to Stripe"}
               </Button>
             </div>
           </div>
