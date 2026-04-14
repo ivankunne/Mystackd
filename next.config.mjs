@@ -4,6 +4,7 @@ const nextConfig = {
     // Stub files use intentional unused params — skip ESLint during build
     ignoreDuringBuilds: true,
   },
+  // Force fresh build
   async headers() {
     const securityHeaders = [
       { key: "X-Frame-Options",           value: "DENY" },
