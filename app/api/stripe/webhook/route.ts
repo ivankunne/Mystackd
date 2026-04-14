@@ -17,7 +17,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const userId = session.metadata?.userId;
   if (!userId) return;
 
-  const { data: subscription } = await stripe.subscriptions.retrieve(
+  const subscription = await stripe.subscriptions.retrieve(
     session.subscription as string
   );
 
