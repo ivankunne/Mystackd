@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 import { Check, X, Minus, CreditCard, Sparkles, Zap, Shield, ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
