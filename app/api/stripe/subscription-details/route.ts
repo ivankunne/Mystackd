@@ -63,15 +63,16 @@ export async function POST(req: NextRequest) {
       } as SubscriptionDetails);
     }
 
-    // Fetch subscription and customer details from Stripe
-    const results = await Promise.all([
-      stripe.subscriptions.retrieve(profile.stripe_subscription_id),
-      profile.stripe_customer_id
-        ? stripe.customers.retrieve(profile.stripe_customer_id)
-        : null,
-    ]);
-    const subscription = results[0] as Stripe.Subscription;
-    const customer = results[1];
+    // Fetch subscription from Stripe
+    const subscription: Stripe.Subscription = await stripe.subscriptions.retrieve(
+      profile.stripe_subscription_id
+    );
+
+    // Fetch customer from Stripe if we have a customer ID
+    let customer: Stripe.Customer | Stripe.DeletedCustomer | null = null;
+    if (profile.stripe_customer_id) {
+      customer = await stripe.customers.retrieve(profile.stripe_customer_id);
+    }
 
     // Determine plan type (monthly or annual)
     const planItem = subscription.items.data[0];
