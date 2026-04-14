@@ -36,20 +36,33 @@ export async function getSubscription(userId?: string): Promise<Subscription> {
 }
 
 export async function createCheckoutSession(
-  userId?: string,
-  userEmail?: string,
+  userId: string,
+  userEmail: string,
+  priceId: string,
 ): Promise<{ url: string }> {
-  // TODO: Replace with Stripe Checkout session via API route
-  return { url: "#" };
+  const response = await fetch("/api/stripe/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, userEmail, priceId }),
+  });
+  if (!response.ok) throw new Error("Failed to create checkout session");
+  return response.json();
 }
 
-export async function cancelSubscription(userId?: string): Promise<void> {
-  // TODO: Replace with Stripe cancel subscription via API route
+export async function cancelSubscription(userId: string): Promise<void> {
+  // Redirect to billing portal where user can cancel
+  const { url } = await createBillingPortalSession(userId);
+  if (url) window.location.href = url;
 }
 
 export async function createBillingPortalSession(
-  userId?: string,
+  userId: string,
 ): Promise<{ url: string }> {
-  // TODO: Replace with Stripe Customer Portal session via API route
-  return { url: "#" };
+  const response = await fetch("/api/stripe/portal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) throw new Error("Failed to create billing portal session");
+  return response.json();
 }
