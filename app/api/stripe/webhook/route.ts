@@ -5,15 +5,9 @@ import { createClient } from "@supabase/supabase-js";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
-
 export const dynamic = "force-dynamic";
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: ReturnType<typeof createClient>) {
   const userId = session.metadata?.userId;
   if (!userId) return;
 
@@ -32,7 +26,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     .eq("id", userId);
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: ReturnType<typeof createClient>) {
   const userId = subscription.metadata?.userId;
   if (!userId) return;
 
@@ -54,7 +48,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   }
 }
 
-async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: ReturnType<typeof createClient>) {
   // Find user by customer ID
   const { data: profile } = await supabase
     .from("profiles")
@@ -72,6 +66,12 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    );
+
     const body = await req.text();
     const signature = req.headers.get("stripe-signature")!;
 
@@ -90,18 +90,20 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed":
         await handleCheckoutSessionCompleted(
-          event.data.object as Stripe.Checkout.Session
+          event.data.object as Stripe.Checkout.Session,
+          supabase
         );
         break;
 
       case "customer.subscription.deleted":
         await handleSubscriptionDeleted(
-          event.data.object as Stripe.Subscription
+          event.data.object as Stripe.Subscription,
+          supabase
         );
         break;
 
       case "invoice.payment_failed":
-        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, supabase);
         break;
     }
 
