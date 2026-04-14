@@ -40,8 +40,8 @@ import { getContracts } from "@/lib/data/contracts";
 import { getLeads } from "@/lib/data/leads";
 import { getReminderLogs } from "@/lib/data/reminders";
 import {
-  getSubscription, cancelSubscription, createBillingPortalSession, getInvoices, getSubscriptionDetails,
-  type Subscription, type Invoice, type SubscriptionDetails,
+  getSubscription, cancelSubscription, createBillingPortalSession, getInvoices,
+  type UserSubscription, type Invoice,
 } from "@/lib/data/billing";
 import { changePassword, deleteUserRecord, login } from "@/lib/auth";
 import { getPaymentInfo, savePaymentInfo, type PaymentInfo } from "@/lib/data/payment-info";
@@ -206,31 +206,16 @@ export default function SettingsPage() {
   }, []);
 
   // Subscription
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loadingSubscriptionDetails, setLoadingSubscriptionDetails] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       getSubscription(user.id).then(setSubscription);
       if (user.isPro) {
-        setLoadingSubscriptionDetails(true);
-        Promise.all([
-          getSubscriptionDetails(user.id).catch(err => {
-            console.error("Failed to fetch subscription details:", err);
-            return null;
-          }),
-          getInvoices(user.id).catch(err => {
-            console.error("Failed to fetch invoices:", err);
-            return [];
-          }),
-        ])
-          .then(([details, invs]) => {
-            if (details) setSubscriptionDetails(details);
-            if (invs) setInvoices(invs);
-          })
-          .finally(() => setLoadingSubscriptionDetails(false));
+        getInvoices(user.id).catch(err => {
+          console.error("Failed to fetch invoices:", err);
+        });
       }
     }
   }, [user?.id, user?.isPro]);
@@ -922,82 +907,12 @@ export default function SettingsPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* Subscription details */}
+                      {/* Pro status */}
                       <div className="rounded-xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
-                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Subscription</p>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-400">Plan type</span>
-                            <span className="text-white capitalize">
-                              {loadingSubscriptionDetails ? "Loading..." : (subscriptionDetails?.planType || "—")}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-400">Current price</span>
-                            <span className="text-white">
-                              {loadingSubscriptionDetails ? "Loading..." : (subscriptionDetails?.currentPrice ? `€${subscriptionDetails.currentPrice}/month` : "—")}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-400">Renewal date</span>
-                            <span className="text-white">
-                              {loadingSubscriptionDetails ? "Loading..." : (subscriptionDetails?.renewalDate
-                                ? new Date(subscriptionDetails.renewalDate).toLocaleDateString()
-                                : "—")}
-                            </span>
-                          </div>
-                          {subscriptionDetails?.cancelAtPeriodEnd && (
-                            <div className="flex justify-between text-sm pt-2 border-t" style={{ borderColor: "var(--border-col)" }}>
-                              <span className="text-red-400">Status</span>
-                              <span className="text-red-400 font-medium">Cancelling at period end</span>
-                            </div>
-                          )}
-                          {subscriptionDetails?.paymentMethodLast4 && (
-                            <div className="flex justify-between text-sm pt-2 border-t" style={{ borderColor: "var(--border-col)" }}>
-                              <span className="text-slate-400">Payment method</span>
-                              <span className="text-white capitalize">{subscriptionDetails.paymentMethodBrand} •••• {subscriptionDetails.paymentMethodLast4}</span>
-                            </div>
-                          )}
-                        </div>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Plan Status</p>
+                        <p className="text-lg font-semibold text-green-400">✓ MyStackd Pro</p>
+                        <p className="text-sm text-slate-400 mt-1">You have full access to all premium features.</p>
                       </div>
-
-                      {/* Invoice history */}
-                      {invoices.length > 0 && (
-                        <div className="rounded-xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>
-                          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Recent invoices</p>
-                          <div className="space-y-2">
-                            {invoices.slice(0, 5).map((invoice) => (
-                              <div key={invoice.id} className="flex items-center justify-between py-2 px-2 rounded hover:opacity-80" style={{ background: "var(--bg-page)" }}>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-white">
-                                    {invoice.number ? `Invoice ${invoice.number}` : "Invoice"}
-                                  </p>
-                                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                                    {new Date(invoice.date).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span className="text-sm font-semibold" style={{ color: "#22C55E" }}>
-                                    €{invoice.amount.toFixed(2)}
-                                  </span>
-                                  {invoice.pdfUrl && (
-                                    <a
-                                      href={invoice.pdfUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="p-1.5 rounded hover:bg-slate-700"
-                                      title="Download PDF"
-                                    >
-                                      <Download className="h-4 w-4" style={{ color: "#22C55E" }} />
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
 
                       {/* Billing actions */}
                       <div className="rounded-xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}>

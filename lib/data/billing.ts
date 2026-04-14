@@ -117,26 +117,3 @@ export async function getInvoices(userId: string): Promise<Invoice[]> {
   return data.invoices ?? [];
 }
 
-export interface SubscriptionDetails {
-  planType: "monthly" | "annual" | null;
-  renewalDate: string | null;
-  currentPrice: number | null;
-  status: string | null;
-  cancelAtPeriodEnd: boolean;
-  cancelDate: string | null;
-  paymentMethodLast4: string | null;
-  paymentMethodBrand: string | null;
-}
-
-export async function getSubscriptionDetails(
-  userId: string,
-): Promise<SubscriptionDetails> {
-  const response = await fetch("/api/stripe/subscription-details", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId }),
-  });
-  if (!response.ok) throw new Error("Failed to fetch subscription details");
-  const data = await response.json() as SubscriptionDetails;
-  return data;
-}
