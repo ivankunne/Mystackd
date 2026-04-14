@@ -176,10 +176,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Record that we're processing this event
-    await supabase
-      .from("stripe_webhook_events")
-      .insert({ stripe_event_id: event.id, event_type: event.type, processed_at: new Date().toISOString() })
-      .catch(err => console.error("Failed to record webhook event:", err));
+    try {
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ stripe_event_id: event.id, event_type: event.type, processed_at: new Date().toISOString() });
+    } catch (err) {
+      console.error("Failed to record webhook event:", err);
+    }
 
     // Handle events
     switch (event.type) {
