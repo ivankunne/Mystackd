@@ -20,12 +20,32 @@ export async function getSubscription(userId?: string): Promise<Subscription> {
   const supabase = createClient();
   const { data } = await supabase.auth.getSession();
   if (!data.session?.user) return { ...FREE_PLAN };
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_pro")
+    .select("is_pro, stripe_subscription_id")
     .eq("id", data.session!.user.id)
     .single();
+
   if (!profile?.is_pro) return { ...FREE_PLAN };
+
+  // If user is Pro, try to fetch real subscription data from the server
+  // This will get the actual renewal date and subscription details
+  try {
+    const response = await fetch("/api/stripe/subscription", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: data.session!.user.id }),
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+  } catch (error) {
+    console.error("Failed to fetch subscription data:", error);
+  }
+
+  // Fallback to basic Pro plan data if server call fails
   return {
     planId:            "pro",
     status:            "active",

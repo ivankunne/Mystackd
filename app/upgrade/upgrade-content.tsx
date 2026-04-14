@@ -10,9 +10,9 @@ import { createCheckoutSession } from "@/lib/data/billing";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 
-// Stripe price IDs
-const MONTHLY_PRICE_ID = "price_1TLqW2RWd7nhzzDtyPXaZTdn";
-const ANNUAL_PRICE_ID = "price_1TLqW2RWd7nhzzDt2hPg0Ide";
+// Stripe price IDs from environment
+const MONTHLY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID || "";
+const ANNUAL_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_ANNUAL_PRICE_ID || "";
 
 // ── Comparison data ───────────────────────────────────────────────────────────
 
@@ -82,7 +82,7 @@ function Cell({ value, note }: { value: RowValue; note?: string }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function UpgradePageContent() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, refreshUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,12 +99,15 @@ export default function UpgradePageContent() {
   useEffect(() => {
     // Show success banner if coming from Stripe checkout
     if (searchParams.get("success") === "true" && !successShown) {
-      toast("🎉 You're now on Pro! Enjoy all premium features.", "success");
+      // Refresh user data to get updated Pro status from webhook
+      refreshUser().then(() => {
+        toast("🎉 You're now on Pro! Enjoy all premium features.", "success");
+      });
       setSuccessShown(true);
       // Clean up URL
       router.replace("/upgrade");
     }
-  }, [searchParams, successShown, toast, router]);
+  }, [searchParams, successShown, toast, router, refreshUser]);
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);

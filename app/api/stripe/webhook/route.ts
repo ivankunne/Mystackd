@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase configuration");
       return NextResponse.json(
         { error: "Server configuration error" },
         { status: 500 }
@@ -83,7 +84,15 @@ export async function POST(req: NextRequest) {
     });
 
     const body = await req.text();
-    const signature = req.headers.get("stripe-signature")!;
+    const signature = req.headers.get("stripe-signature");
+
+    if (!signature) {
+      console.error("Missing stripe-signature header");
+      return NextResponse.json(
+        { error: "Missing signature header" },
+        { status: 400 }
+      );
+    }
 
     let event: Stripe.Event;
     try {
@@ -92,9 +101,27 @@ export async function POST(req: NextRequest) {
       console.error("Webhook signature verification failed:", error);
       return NextResponse.json(
         { error: "Invalid signature" },
-        { status: 400 }
+        { status: 401 }
       );
     }
+
+    // Check if we've already processed this event (idempotency)
+    const { data: existingEvent } = await supabase
+      .from("stripe_webhook_events")
+      .select("id")
+      .eq("stripe_event_id", event.id)
+      .single();
+
+    if (existingEvent) {
+      console.log(`Event ${event.id} already processed, skipping`);
+      return NextResponse.json({ received: true });
+    }
+
+    // Record that we're processing this event
+    await supabase
+      .from("stripe_webhook_events")
+      .insert({ stripe_event_id: event.id, event_type: event.type, processed_at: new Date().toISOString() })
+      .catch(err => console.error("Failed to record webhook event:", err));
 
     // Handle events
     switch (event.type) {
@@ -115,6 +142,9 @@ export async function POST(req: NextRequest) {
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, supabase);
         break;
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });

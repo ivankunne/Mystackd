@@ -73,6 +73,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -187,8 +188,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => (prev ? { ...prev, ...updates } : null));
   };
 
+  // Refresh user data from Supabase (useful after subscription changes)
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const profile = await fetchProfile(user.id, user.email);
+      setUser(profile);
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, loginWithGoogle, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, loginWithGoogle, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
