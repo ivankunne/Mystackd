@@ -11,10 +11,10 @@ export const dynamic = "force-dynamic";
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: SupabaseClient) {
   const userId = session.metadata?.userId;
-  if (!userId) return;
+  if (!userId || !session.subscription || !session.customer) return;
 
   const subscription = await stripe.subscriptions.retrieve(
-    session.subscription as string
+    typeof session.subscription === 'string' ? session.subscription : session.subscription.id
   );
 
   // Update profile with pro status and subscription ID
@@ -23,7 +23,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     .update({
       is_pro: true,
       stripe_subscription_id: subscription.id,
-      stripe_customer_id: session.customer as string,
+      stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer.id,
     })
     .eq("id", userId);
 
@@ -61,13 +61,15 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: SupabaseClient) {
   const userId = subscription.metadata?.userId;
-  if (!userId) return;
+  if (!userId || !subscription.customer) return;
+
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
 
   // Find user by Stripe customer ID
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, email, name")
-    .eq("stripe_customer_id", subscription.customer as string)
+    .eq("stripe_customer_id", customerId)
     .single();
 
   if (profile) {
@@ -101,11 +103,15 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: SupabaseClient) {
+  if (!invoice.customer) return;
+
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer.id;
+
   // Find user by customer ID
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("stripe_customer_id", invoice.customer as string)
+    .eq("stripe_customer_id", customerId)
     .single();
 
   if (profile) {

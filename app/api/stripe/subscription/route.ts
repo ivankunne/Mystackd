@@ -61,9 +61,20 @@ export async function POST(req: NextRequest) {
         subscription.current_period_end * 1000
       ).toISOString();
 
+      // Map Stripe status to our supported statuses
+      const statusMap: Record<string, "active" | "canceled" | "past_due" | "trialing"> = {
+        "active": "active",
+        "past_due": "past_due",
+        "canceled": "canceled",
+        "trialing": "trialing",
+        "incomplete": "past_due",
+        "incomplete_expired": "canceled",
+      };
+      const mappedStatus = statusMap[subscription.status] || "active";
+
       return NextResponse.json({
         planId: "pro",
-        status: subscription.status as "active" | "canceled" | "past_due" | "trialing",
+        status: mappedStatus,
         currentPeriodEnd,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         pricePerMonth: subscription.items.data[0]?.price?.unit_amount

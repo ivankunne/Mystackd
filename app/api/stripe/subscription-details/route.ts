@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch subscription and customer details from Stripe
     const [subscription, customer] = await Promise.all([
-      stripe.subscriptions.retrieve(profile.stripe_subscription_id),
+      stripe.subscriptions.retrieve(profile.stripe_subscription_id) as Promise<Stripe.Subscription>,
       profile.stripe_customer_id
         ? stripe.customers.retrieve(profile.stripe_customer_id)
         : null,

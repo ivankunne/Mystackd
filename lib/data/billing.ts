@@ -39,7 +39,8 @@ export async function getSubscription(userId?: string): Promise<Subscription> {
     });
 
     if (response.ok) {
-      return response.json();
+      const data = await response.json() as Subscription;
+      return data;
     }
   } catch (error) {
     console.error("Failed to fetch subscription data:", error);
@@ -66,12 +67,13 @@ export async function createCheckoutSession(
     body: JSON.stringify({ userId, userEmail, priceId }),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    const error = new Error(errorData.error || "Failed to create checkout session") as any;
-    error.code = errorData.code;
+    const errorData = await response.json() as { error?: string; code?: string };
+    const error = new Error(errorData.error || "Failed to create checkout session");
+    (error as any).code = errorData.code;
     throw error;
   }
-  return response.json();
+  const data = await response.json() as { url: string };
+  return data;
 }
 
 export async function cancelSubscription(userId: string): Promise<void> {
