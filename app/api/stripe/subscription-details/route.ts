@@ -93,7 +93,10 @@ export async function POST(req: NextRequest) {
 
       if (pm && typeof pm === 'object' && 'last4' in pm) {
         paymentMethodLast4 = pm.last4 as string;
-        paymentMethodBrand = (pm.brand as string) || null;
+        // brand exists only on Card, not on BankAccount
+        if ('brand' in pm) {
+          paymentMethodBrand = (pm.brand as string) || null;
+        }
       }
     }
 
