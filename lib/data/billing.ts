@@ -65,7 +65,12 @@ export async function createCheckoutSession(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, userEmail, priceId }),
   });
-  if (!response.ok) throw new Error("Failed to create checkout session");
+  if (!response.ok) {
+    const errorData = await response.json();
+    const error = new Error(errorData.error || "Failed to create checkout session") as any;
+    error.code = errorData.code;
+    throw error;
+  }
   return response.json();
 }
 

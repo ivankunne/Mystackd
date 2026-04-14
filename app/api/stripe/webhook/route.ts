@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email";
+import { generateUpgradeConfirmationEmail, generateCancellationConfirmationEmail } from "@/lib/email-templates";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -24,6 +26,37 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
       stripe_customer_id: session.customer as string,
     })
     .eq("id", userId);
+
+  // Send confirmation email
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email, name")
+      .eq("id", userId)
+      .single();
+
+    if (profile?.email) {
+      const planItem = subscription.items.data[0];
+      const planType = planItem?.price?.recurring?.interval === "year" ? "annual" : "monthly";
+      const amount = planItem?.price?.unit_amount ? planItem.price.unit_amount / 100 : (planType === "monthly" ? 9 : 79);
+
+      const emailData = generateUpgradeConfirmationEmail(
+        profile.name || "User",
+        planType,
+        amount,
+        new Date(subscription.current_period_end * 1000).toISOString()
+      );
+
+      await sendEmail({
+        to: profile.email,
+        subject: emailData.subject,
+        html: emailData.html,
+        text: emailData.text,
+      }).catch(err => console.error("Failed to send upgrade confirmation email:", err));
+    }
+  } catch (error) {
+    console.error("Error sending upgrade confirmation email:", error);
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: SupabaseClient) {
@@ -33,7 +66,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
   // Find user by Stripe customer ID
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, email, name")
     .eq("stripe_customer_id", subscription.customer as string)
     .single();
 
@@ -45,6 +78,25 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
         stripe_subscription_id: null,
       })
       .eq("id", profile.id);
+
+    // Send cancellation email
+    try {
+      if (profile.email) {
+        const emailData = generateCancellationConfirmationEmail(
+          profile.name || "User",
+          new Date(subscription.ended_at ? subscription.ended_at * 1000 : Date.now()).toISOString()
+        );
+
+        await sendEmail({
+          to: profile.email,
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text,
+        }).catch(err => console.error("Failed to send cancellation email:", err));
+      }
+    } catch (error) {
+      console.error("Error sending cancellation email:", error);
+    }
   }
 }
 

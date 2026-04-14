@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, X, Minus, CreditCard, Sparkles, Zap, Shield, ArrowRight } from "lucide-react";
+import { Check, X, Minus, CreditCard, Sparkles, Zap, Shield, ArrowRight, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createCheckoutSession } from "@/lib/data/billing";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
+import { parseStripeError } from "@/lib/stripe-errors";
 
 // Stripe price IDs from environment
 const MONTHLY_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID || "";
@@ -90,6 +91,9 @@ export default function UpgradePageContent() {
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
   const [successShown, setSuccessShown] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [errorSuggestion, setErrorSuggestion] = useState("");
   const isPro = user?.isPro ?? false;
 
   useEffect(() => {
@@ -120,9 +124,15 @@ export default function UpgradePageContent() {
         setConfirmOpen(false);
         toast("Stripe not connected yet — coming soon.", "info");
       }
-    } catch {
+    } catch (error: any) {
       setConfirmOpen(false);
-      toast("Something went wrong. Please try again.", "error");
+      setIsUpgrading(false);
+
+      // Parse the error to get user-friendly message
+      const { message, suggestion } = parseStripeError(error);
+      setErrorMessage(message);
+      setErrorSuggestion(suggestion || "");
+      setErrorOpen(true);
     } finally {
       setIsUpgrading(false);
     }
@@ -426,6 +436,50 @@ export default function UpgradePageContent() {
                 {isUpgrading ? "Processing…" : "Go to payment"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Error dialog ────────────────────────────────────── */}
+      <Dialog open={errorOpen} onOpenChange={setErrorOpen}>
+        <DialogContent
+          className="sm:max-w-sm"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-white text-base flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ background: "#ef444420" }}
+              >
+                <AlertCircle className="h-3.5 w-3.5" style={{ color: "#ef4444" }} />
+              </div>
+              Payment failed
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-1 space-y-4">
+            <div
+              className="rounded-xl p-4 space-y-3"
+              style={{ background: "var(--bg-page)", border: "1px solid var(--border-col)" }}
+            >
+              <p className="text-sm text-white font-medium">{errorMessage}</p>
+              {errorSuggestion && (
+                <p className="text-xs text-slate-400">{errorSuggestion}</p>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-600 text-center leading-relaxed">
+              If you continue to experience issues, please contact support or try again later.
+            </p>
+
+            <Button
+              onClick={() => setErrorOpen(false)}
+              className="w-full font-bold"
+              style={{ background: "#22C55E", color: "#0f172a" }}
+            >
+              Try again
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

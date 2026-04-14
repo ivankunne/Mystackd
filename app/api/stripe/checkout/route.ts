@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         customer: customerId,
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/upgrade?success=true`,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/welcome?plan=${billingPeriod}`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/upgrade`,
         metadata: { userId },
       });
@@ -112,8 +112,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url: session.url });
     } catch (checkoutError) {
       console.error("Failed to create checkout session:", checkoutError);
+      const errorCode = (checkoutError as any)?.code || "api_error";
+      const errorMessage = (checkoutError as any)?.message || "Failed to create checkout session";
       return NextResponse.json(
-        { error: "Failed to create checkout session" },
+        { error: errorMessage, code: errorCode },
         { status: 500 }
       );
     }
