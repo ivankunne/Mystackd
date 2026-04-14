@@ -69,7 +69,7 @@ export async function createCheckoutSession(
   if (!response.ok) {
     const errorData = await response.json() as { error?: string; code?: string };
     const error = new Error(errorData.error || "Failed to create checkout session");
-    (error as any).code = errorData.code;
+    Object.assign(error, { code: errorData.code });
     throw error;
   }
   const data = await response.json() as { url: string };
@@ -91,7 +91,8 @@ export async function createBillingPortalSession(
     body: JSON.stringify({ userId }),
   });
   if (!response.ok) throw new Error("Failed to create billing portal session");
-  return response.json();
+  const data = await response.json() as { url: string };
+  return data;
 }
 
 export interface Invoice {
@@ -112,8 +113,8 @@ export async function getInvoices(userId: string): Promise<Invoice[]> {
     body: JSON.stringify({ userId }),
   });
   if (!response.ok) throw new Error("Failed to fetch invoices");
-  const data = await response.json();
-  return data.invoices || [];
+  const data = await response.json() as { invoices?: Invoice[] };
+  return data.invoices ?? [];
 }
 
 export interface SubscriptionDetails {
@@ -136,5 +137,6 @@ export async function getSubscriptionDetails(
     body: JSON.stringify({ userId }),
   });
   if (!response.ok) throw new Error("Failed to fetch subscription details");
-  return response.json();
+  const data = await response.json() as SubscriptionDetails;
+  return data;
 }
