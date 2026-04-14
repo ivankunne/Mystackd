@@ -86,3 +86,48 @@ export async function createBillingPortalSession(
   if (!response.ok) throw new Error("Failed to create billing portal session");
   return response.json();
 }
+
+export interface Invoice {
+  id: string;
+  number: string | null;
+  status: string;
+  amount: number;
+  currency: string;
+  date: string;
+  pdfUrl: string | null;
+  hostedUrl: string | null;
+}
+
+export async function getInvoices(userId: string): Promise<Invoice[]> {
+  const response = await fetch("/api/stripe/invoices", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) throw new Error("Failed to fetch invoices");
+  const data = await response.json();
+  return data.invoices || [];
+}
+
+export interface SubscriptionDetails {
+  planType: "monthly" | "annual" | null;
+  renewalDate: string | null;
+  currentPrice: number | null;
+  status: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelDate: string | null;
+  paymentMethodLast4: string | null;
+  paymentMethodBrand: string | null;
+}
+
+export async function getSubscriptionDetails(
+  userId: string,
+): Promise<SubscriptionDetails> {
+  const response = await fetch("/api/stripe/subscription-details", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) throw new Error("Failed to fetch subscription details");
+  return response.json();
+}
