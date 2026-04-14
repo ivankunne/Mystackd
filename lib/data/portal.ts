@@ -1,6 +1,28 @@
 import { createClient } from "../supabase/client";
 import type { ProjectUpdate, SharedFile, ClientFeedback, ClientPortal } from "../mock-data";
 
+// ─── Pro-only feature check ───────────────────────────────────────────────────
+
+/**
+ * Client portals are a Pro-only feature.
+ * Throws an error if user is not Pro.
+ */
+async function requireProForPortals(): Promise<void> {
+  const supabase = createClient();
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user?.id) throw new Error("Not authenticated");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_pro")
+    .eq("id", data.session.user.id)
+    .single();
+
+  if (!profile?.is_pro) {
+    throw new Error("Client portals require a Pro subscription");
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function rowToPortal(row: Record<string, unknown>): ClientPortal {
@@ -77,6 +99,7 @@ export async function getPortal(clientId: string): Promise<ClientPortal | null> 
 }
 
 export async function getAllPortals(): Promise<ClientPortal[]> {
+  await requireProForPortals();
   const supabase = createClient();
   const id = await getCurrentUserId();
   const { data, error } = await supabase
@@ -99,6 +122,7 @@ export async function getPortalByToken(token: string): Promise<ClientPortal | nu
 }
 
 export async function savePortal(settings: ClientPortal): Promise<ClientPortal> {
+  await requireProForPortals();
   const supabase = createClient();
   const id = await getCurrentUserId();
   const { data, error } = await supabase

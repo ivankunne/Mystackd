@@ -1,6 +1,28 @@
 import { createClient } from "../supabase/client";
 import type { User, Currency, Webhook } from "../mock-data";
 
+// ─── Pro-only feature checks ──────────────────────────────────────────────────
+
+/**
+ * Webhooks are a Pro-only feature.
+ * Throws an error if user is not Pro.
+ */
+async function requireProForWebhooks(userId?: string): Promise<void> {
+  const supabase = createClient();
+  const id = userId;
+  if (!id) throw new Error("User ID required");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_pro")
+    .eq("id", id)
+    .single();
+
+  if (!profile?.is_pro) {
+    throw new Error("Webhooks require a Pro subscription");
+  }
+}
+
 export interface UpdateUserProfileInput {
   name?: string;
   email?: string;
@@ -147,8 +169,9 @@ export async function updatePublicPageSettings(
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 
 export async function getWebhooks(userId?: string): Promise<Webhook[]> {
-  const supabase = createClient();
   const id = userId ?? await getCurrentUserId();
+  await requireProForWebhooks(id);
+  const supabase = createClient();
   const { data, error } = await supabase
     .from("webhooks")
     .select("*")
@@ -165,8 +188,9 @@ export async function getWebhooks(userId?: string): Promise<Webhook[]> {
 }
 
 export async function updateWebhooks(webhooks: Webhook[], userId?: string): Promise<void> {
-  const supabase = createClient();
   const id = userId ?? await getCurrentUserId();
+  await requireProForWebhooks(id);
+  const supabase = createClient();
   // Delete all existing webhooks for this user and re-insert
   await supabase.from("webhooks").delete().eq("user_id", id);
   if (webhooks.length === 0) return;

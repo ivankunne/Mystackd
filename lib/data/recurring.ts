@@ -1,9 +1,30 @@
 import dayjs from "dayjs";
 import { getIncomeEntries, addIncomeEntry } from "./income";
 import { loadObject, saveObject } from "../storage";
+import { createClient } from "../supabase/client";
 import type { IncomeEntry } from "../mock-data";
 
 const LAST_RUN_KEY = "recurring_last_run";
+
+/**
+ * Recurring invoices are a Pro-only feature.
+ * Throws an error if user is not Pro.
+ */
+async function requireProForRecurring(): Promise<void> {
+  const supabase = createClient();
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user?.id) throw new Error("Not authenticated");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_pro")
+    .eq("id", data.session.user.id)
+    .single();
+
+  if (!profile?.is_pro) {
+    throw new Error("Recurring invoices require a Pro subscription");
+  }
+}
 
 /**
  * Checks all recurring income series and creates the current month's occurrence
@@ -19,6 +40,7 @@ const LAST_RUN_KEY = "recurring_last_run";
  * TODO: Replace with a Supabase scheduled function / cron job when backend is ready.
  */
 export async function processRecurringIncome(existingEntries?: IncomeEntry[]): Promise<IncomeEntry[]> {
+  await requireProForRecurring();
   // Only run once per calendar day to avoid creating duplicates on re-renders
   const today = dayjs().format("YYYY-MM-DD");
   const lastRun = loadObject<string>(LAST_RUN_KEY, "");
