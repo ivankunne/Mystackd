@@ -22,7 +22,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
       is_pro: true,
       stripe_subscription_id: subscription.id,
       stripe_customer_id: session.customer as string,
-    })
+    } as any)
     .eq("id", userId);
 }
 
@@ -43,7 +43,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
       .update({
         is_pro: false,
         stripe_subscription_id: null,
-      })
+      } as any)
       .eq("id", profile.id);
   }
 }
@@ -59,7 +59,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: Ret
   if (profile) {
     await supabase
       .from("profiles")
-      .update({ is_pro: false })
+      .update({ is_pro: false } as any)
       .eq("id", profile.id);
   }
 }
