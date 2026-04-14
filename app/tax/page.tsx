@@ -35,10 +35,11 @@ export default function TaxPage() {
   }, [user, router]);
 
   useEffect(() => {
+    if (!user?.id) return;
     let mounted = true;
     Promise.all([
-      getIncomeEntries(user?.id),
-      getExpenses(user?.id),
+      getIncomeEntries(user.id),
+      getExpenses(user.id),
     ]).then(([inc, exp]) => {
       if (mounted) { setEntries(inc); setExpenses(exp); setIsLoading(false); }
     });

@@ -95,11 +95,12 @@ export default function IntelligencePage() {
   const [savings, setSavings] = useState<string>("");
 
   useEffect(() => {
+    if (!user?.id) return;
     Promise.all([
-      getInvoices(user?.id),
-      getIncomeEntries(user?.id),
-      getExpenses(user?.id),
-      getTimeEntries(user?.id),
+      getInvoices(user.id),
+      getIncomeEntries(user.id),
+      getExpenses(user.id),
+      getTimeEntries(user.id),
     ]).then(([inv, inc, exp, time]) => {
       setInvoices(inv);
       setIncome(inc);

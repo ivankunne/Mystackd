@@ -225,10 +225,11 @@ export default function ClientDetailPage() {
   }, [user, router]);
 
   const loadData = useCallback(async () => {
+    if (!user?.id) return;
     const [clients, invs, ents, portalData, upds, fls, fb, props, cons, projs] = await Promise.all([
-      getClients(user?.id),
-      getInvoices(user?.id),
-      getIncomeEntries(user?.id),
+      getClients(user.id),
+      getInvoices(user.id),
+      getIncomeEntries(user.id),
       getPortal(clientId),
       getProjectUpdates(clientId),
       getSharedFiles(clientId),

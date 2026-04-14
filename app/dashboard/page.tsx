@@ -72,14 +72,15 @@ export default function DashboardPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    if (!user?.id) return;
     let mounted = true;
     setIsLoading(true);
-    const incomePromise = getIncomeEntries(user?.id);
+    const incomePromise = getIncomeEntries(user.id);
     Promise.all([
       incomePromise,
-      getExpenses(user?.id),
-      getInvoices(user?.id),
-      getAcceptedProposals(user?.id),
+      getExpenses(user.id),
+      getInvoices(user.id),
+      getAcceptedProposals(user.id),
     ]).then(async ([inc, exp, inv, props]) => {
       if (mounted) {
         // Process recurring income with pre-fetched entries (avoid double-fetch)

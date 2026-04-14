@@ -78,11 +78,12 @@ export default function ClientsPage() {
   }, [user, router]);
 
   useEffect(() => {
+    if (!user?.id) return;
     let mounted = true;
     Promise.all([
-      getClients(user?.id),
-      getInvoices(user?.id),
-      getIncomeEntries(user?.id),
+      getClients(user.id),
+      getInvoices(user.id),
+      getIncomeEntries(user.id),
       getAllPortals(),
     ]).then(([c, inv, ent, portalsData]) => {
       if (!mounted) return;
