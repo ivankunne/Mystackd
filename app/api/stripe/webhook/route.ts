@@ -15,7 +15,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
 
   const subscription = await stripe.subscriptions.retrieve(
     typeof session.subscription === 'string' ? session.subscription : session.subscription.id
-  );
+  ) as any;
 
   // Update profile with pro status and subscription ID
   await supabase
