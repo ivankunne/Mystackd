@@ -155,44 +155,46 @@ export default function UpgradePageContent() {
 
   return (
     <AppShell title="Upgrade">
-      <div className="p-5 lg:p-6 space-y-5">
+      <div className="p-5 lg:p-6 space-y-7">
 
         {/* Page header — matches every other page */}
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Choose your plan</h2>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            Upgrade to Pro to unlock your full financial picture.
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Unlock your full potential</h2>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Get advanced insights, automation, and powerful tools to grow your business.
           </p>
         </div>
 
-        {/* Billing period toggle */}
-        <div className="flex justify-center mb-2">
+        {/* Billing period toggle — prominent at top */}
+        <div className="flex justify-center">
           <div
-            className="inline-flex rounded-lg p-1"
+            className="inline-flex rounded-lg p-1 gap-0"
             style={{ background: "var(--bg-page)", border: "1px solid var(--border-col)" }}
           >
             <button
               onClick={() => setBillingPeriod("monthly")}
-              className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              className="px-6 py-3 rounded-md text-sm font-semibold transition-all duration-200"
               style={{
                 color: billingPeriod === "monthly" ? "#0f172a" : "var(--text-secondary)",
                 background: billingPeriod === "monthly" ? "#22C55E" : "transparent",
+                boxShadow: billingPeriod === "monthly" ? "0 0 12px #22C55E30" : "none",
               }}
             >
               Monthly
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className="px-4 py-2 rounded-md text-sm font-medium transition-colors relative"
+              className="px-6 py-3 rounded-md text-sm font-semibold transition-all duration-200 relative"
               style={{
                 color: billingPeriod === "annual" ? "#0f172a" : "var(--text-secondary)",
                 background: billingPeriod === "annual" ? "#22C55E" : "transparent",
+                boxShadow: billingPeriod === "annual" ? "0 0 12px #22C55E30" : "none",
               }}
             >
               Annual
               {billingPeriod === "annual" && (
                 <span
-                  className="absolute -top-6 -right-4 text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+                  className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap"
                   style={{ background: "#22C55E", color: "#0f172a" }}
                 >
                   Save €29
@@ -202,67 +204,73 @@ export default function UpgradePageContent() {
           </div>
         </div>
 
-        {/* Plan header cards */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Plan cards */}
+        <div className="grid grid-cols-2 gap-6">
 
           {/* Free card */}
           <div
-            className="rounded-xl p-5"
+            className="rounded-2xl p-6 transition-all hover:border-slate-500"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border-col)" }}
           >
-            <div className="flex items-start justify-between">
+            <div className="space-y-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Free</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>€0</span>
-                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>/ mo</span>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Free Plan</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold" style={{ color: "var(--text-primary)" }}>€0</span>
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>forever</span>
                 </div>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Free forever</p>
               </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Perfect for getting started with essential tracking features.
+              </p>
               <span
-                className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                className="inline-block text-xs font-semibold px-3 py-1.5 rounded-lg"
                 style={{ background: "var(--bg-page)", color: "var(--text-muted)", border: "1px solid var(--border-col)" }}
               >
-                Current plan
+                Your current plan
               </span>
             </div>
           </div>
 
           {/* Pro card */}
           <div
-            className="rounded-xl p-5 relative overflow-hidden"
+            className="rounded-2xl p-6 relative overflow-hidden shadow-lg transition-all"
             style={{
               background: "linear-gradient(135deg, #0d1f12 0%, #091510 100%)",
-              border: "2px solid #22C55E40",
+              border: "2px solid #22C55E50",
+              boxShadow: "0 10px 40px #22C55E15",
             }}
           >
             <div
               className="absolute inset-0 pointer-events-none"
               style={{ background: "radial-gradient(ellipse at top right, #22C55E0C 0%, transparent 65%)" }}
             />
-            <div className="flex items-start justify-between relative">
+            <div className="relative space-y-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "#22C55E" }}>
-                  Pro
+                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#22C55E" }}>
+                  Pro Plan
                 </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold" style={{ color: "#ffffff" }}>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold" style={{ color: "#ffffff" }}>
                     {billingPeriod === "monthly" ? "€9" : "€79"}
                   </span>
                   <span className="text-sm" style={{ color: "#94a3b8" }}>
-                    {billingPeriod === "monthly" ? "/ mo" : "/ year"}
+                    {billingPeriod === "monthly" ? "/ month" : "/ year"}
                   </span>
                 </div>
-                <p className="text-xs mt-1" style={{ color: "#6b7280" }}>Cancel anytime</p>
               </div>
+              <p className="text-xs leading-relaxed" style={{ color: "#cbd5e1" }}>
+                Get advanced insights, automation, and priority support to scale your business.
+              </p>
               <Button
                 onClick={() => setConfirmOpen(true)}
-                className="font-bold text-xs h-9 px-4"
+                className="w-full font-semibold text-sm h-10"
                 style={{ background: "#22C55E", color: "#0f172a" }}
               >
-                <Zap className="h-3.5 w-3.5 mr-1.5 fill-current" />
-                Upgrade now
+                <Zap className="h-4 w-4 mr-2 fill-current" />
+                Go to payment
               </Button>
+              <p className="text-xs text-center" style={{ color: "#6b7280" }}>Cancel anytime • No questions asked</p>
             </div>
           </div>
         </div>
@@ -338,28 +346,18 @@ export default function UpgradePageContent() {
           ))}
         </div>
 
-        {/* Trust + CTA row */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-5 flex-wrap">
-            {[
-              { icon: Shield,     label: "Secure payments" },
-              { icon: ArrowRight, label: "Cancel anytime" },
-              { icon: CreditCard, label: "14-day refund" },
-            ].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                <Icon className="h-3.5 w-3.5" style={{ color: "#22C55E" }} />
-                {label}
-              </div>
-            ))}
-          </div>
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            className="font-bold text-sm h-9 px-5"
-            style={{ background: "#22C55E", color: "#0f172a" }}
-          >
-            <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-            Upgrade to Pro — {billingPeriod === "monthly" ? "€9/mo" : "€79/yr"}
-          </Button>
+        {/* Trust badges */}
+        <div className="flex items-center justify-center gap-6 flex-wrap pt-2">
+          {[
+            { icon: Shield,     label: "Secure & encrypted" },
+            { icon: ArrowRight, label: "Cancel anytime" },
+            { icon: CreditCard, label: "14-day refund" },
+          ].map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <Icon className="h-4 w-4" style={{ color: "#22C55E" }} />
+              <span>{label}</span>
+            </div>
+          ))}
         </div>
 
       </div>
@@ -422,7 +420,7 @@ export default function UpgradePageContent() {
                 className="flex-1 font-bold"
                 style={{ background: "#22C55E", color: "#0f172a" }}
               >
-                {isUpgrading ? "Processing…" : "Go to Stripe"}
+                {isUpgrading ? "Processing…" : "Go to payment"}
               </Button>
             </div>
           </div>
