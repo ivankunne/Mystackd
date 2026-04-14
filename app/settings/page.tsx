@@ -28,7 +28,7 @@ import {
   getWebhooks, updateWebhooks,
 } from "@/lib/data/user";
 import { getIncomeEntries } from "@/lib/data/income";
-import { exportIncomeCSV, exportExpensesCSV, exportInvoicesCSV, exportTimeEntriesCSV } from "@/lib/csv";
+import { exportIncomeCSV, exportExpensesCSV, exportTimeEntriesCSV } from "@/lib/csv";
 import { generateTaxReportPDF } from "@/lib/pdf";
 import { formatCurrency } from "@/lib/calculations";
 import { getExpenses } from "@/lib/data/expenses";
@@ -41,7 +41,7 @@ import { getLeads } from "@/lib/data/leads";
 import { getReminderLogs } from "@/lib/data/reminders";
 import {
   getSubscription, cancelSubscription, createBillingPortalSession, getInvoices,
-  type UserSubscription, type Invoice,
+  type UserSubscription, type Invoice as BillingInvoice,
 } from "@/lib/data/billing";
 import { changePassword, deleteUserRecord, login } from "@/lib/auth";
 import { getPaymentInfo, savePaymentInfo, type PaymentInfo } from "@/lib/data/payment-info";
@@ -207,7 +207,7 @@ export default function SettingsPage() {
 
   // Subscription
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -1023,14 +1023,6 @@ export default function SettingsPage() {
                     <Button size="sm" variant="outline" className="hover:opacity-80" onClick={async () => {
                       const expenses = await getExpenses(user!.id);
                       exportExpensesCSV(expenses);
-                    }}>
-                      <Download className="h-3.5 w-3.5 mr-1.5" /> Export
-                    </Button>
-                  </SettingRow>
-                  <SettingRow label="Export invoices CSV" description="All invoices with amounts and status.">
-                    <Button size="sm" variant="outline" className="hover:opacity-80" onClick={async () => {
-                      const invoices = await getInvoices(user!.id);
-                      exportInvoicesCSV(invoices);
                     }}>
                       <Download className="h-3.5 w-3.5 mr-1.5" /> Export
                     </Button>
