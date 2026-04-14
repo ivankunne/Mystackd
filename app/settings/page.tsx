@@ -27,7 +27,6 @@ import {
   updateUserProfile, deleteUserAccount, updateIncomeGoal, updatePublicPageSettings,
   getWebhooks, updateWebhooks,
 } from "@/lib/data/user";
-import { getInvoices } from "@/lib/data/invoices";
 import { getIncomeEntries } from "@/lib/data/income";
 import { exportIncomeCSV, exportExpensesCSV, exportInvoicesCSV, exportTimeEntriesCSV } from "@/lib/csv";
 import { generateTaxReportPDF } from "@/lib/pdf";
